@@ -162,16 +162,32 @@ async function downloadQrPdf(
   // Dynamically import jsPDF to avoid SSR issues
   const { jsPDF } = (await import("jspdf")) as { jsPDF: new (...args: unknown[]) => JsPDFType };
 
+  // Helper to fetch the production/static logo image and convert it to data URL
+  const getLogoDataUrl = async (): Promise<string> => {
+    try {
+      const response = await fetch("/nammafit-pdf-logo.png");
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject("Failed to read blob");
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.error("Failed to load PDF logo, falling back to SVG", e);
+      return svgToPngDataUrl(getNammaFitSVGString("#ffffff"), 300);
+    }
+  };
+
   // ── 1. Generate assets ──────────────────────────────────────────────────────
   const [qrDataUrl, logoDataUrl] = await Promise.all([
     QRCode.toDataURL(shareUrl, {
       width: 500,
       margin: 1,
-      color: { dark: "#1e1b4b", light: "#ffffff" },
+      color: { dark: "#091413", light: "#ffffff" }, // Brand forest green dark blocks
       errorCorrectionLevel: "H",
     }),
-    // Logo mark on white background for the PDF
-    svgToPngDataUrl(getNammaFitSVGString("#ffffff"), 300),
+    getLogoDataUrl(),
   ]);
 
   // ── 2. Build PDF ────────────────────────────────────────────────────────────
@@ -185,38 +201,29 @@ async function downloadQrPdf(
   const W = 100; // page width  mm
   const H = 130; // page height mm
 
-  // Background — deep indigo-950
-  pdf.setFillColor(2, 6, 23); // #020617 slate-950
+  // Background — brand forest green-black
+  pdf.setFillColor(9, 20, 19); // #091413
   pdf.rect(0, 0, W, H, "F");
 
-  // Top accent bar gradient approximation (solid indigo strip)
-  pdf.setFillColor(99, 102, 241); // indigo-500
+  // Top accent bar brand green-mint
+  pdf.setFillColor(176, 228, 204); // #B0E4CC
   pdf.rect(0, 0, W, 1.5, "F");
 
-  // ── Logo mark (top-center) ──────────────────────────────────────────────────
-  const markMm = 14; // 14 mm square
-  pdf.addImage(logoDataUrl, "PNG", (W - markMm) / 2, 8, markMm, markMm);
-
-  // ── Wordmark text ──────────────────────────────────────────────────────────
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(14);
-  // "namma" in indigo
-  pdf.setTextColor(129, 140, 248); // indigo-400
-  pdf.text("namma", W / 2 - 8, 27, { align: "right" });
-  // "fit" in violet/pink
-  pdf.setTextColor(167, 139, 250); // violet-400
-  pdf.text("fit", W / 2 - 7, 27, { align: "left" });
+  // ── Branded Logo (top-center) ───────────────────────────────────────────────
+  const logoW = 24; // 24 mm width
+  const logoH = 24; // 24 mm height
+  pdf.addImage(logoDataUrl, "PNG", (W - logoW) / 2, 3, logoW, logoH);
 
   // Sub-label
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(6);
-  pdf.setTextColor(100, 116, 139); // slate-500
-  pdf.text("Adaptive fit intelligence", W / 2, 31.5, { align: "center" });
+  pdf.setTextColor(148, 163, 184); // slate-400
+  pdf.text("Adaptive fit intelligence", W / 2, 30.5, { align: "center" });
 
   // Divider
-  pdf.setDrawColor(30, 41, 59); // slate-800
+  pdf.setDrawColor(24, 48, 45); // subtle dark forest green #18302D
   pdf.setLineWidth(0.3);
-  pdf.line(10, 34, W - 10, 34);
+  pdf.line(10, 33, W - 10, 33);
 
   // ── QR Code ────────────────────────────────────────────────────────────────
   const qrMm = 58; // QR size in mm
@@ -234,13 +241,13 @@ async function downloadQrPdf(
   if (companyName) {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(9);
-    pdf.setTextColor(226, 232, 240); // slate-200
+    pdf.setTextColor(176, 228, 204); // brand green-mint #B0E4CC
     pdf.text(companyName, W / 2, infoY, { align: "center" });
   }
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(6.5);
-  pdf.setTextColor(100, 116, 139); // slate-500
+  pdf.setTextColor(148, 163, 184); // slate-400
   pdf.text(`@${username}`, W / 2, infoY + (companyName ? 4.5 : 0), {
     align: "center",
   });
@@ -248,17 +255,17 @@ async function downloadQrPdf(
   // URL
   const urlY = infoY + (companyName ? 9 : 5);
   pdf.setFontSize(5.5);
-  pdf.setTextColor(99, 102, 241); // indigo-500
+  pdf.setTextColor(176, 228, 204); // brand green-mint #B0E4CC
   const displayUrl =
     shareUrl.length > 40 ? shareUrl.slice(0, 38) + "…" : shareUrl;
   pdf.text(displayUrl, W / 2, urlY, { align: "center" });
 
   // ── Footer ─────────────────────────────────────────────────────────────────
-  pdf.setDrawColor(30, 41, 59);
+  pdf.setDrawColor(24, 48, 45); // subtle dark forest green #18302D
   pdf.line(10, H - 9, W - 10, H - 9);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(5);
-  pdf.setTextColor(51, 65, 85); // slate-700
+  pdf.setTextColor(100, 116, 139); // slate-500
   pdf.text(
     `Powered by NammaFit  ·  ${new Date().getFullYear()}`,
     W / 2,
