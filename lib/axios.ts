@@ -5,12 +5,19 @@ export const getApiBaseUrl = (): string => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   if (typeof window !== "undefined") {
-    // If we're on the client side, use the current host's IP/hostname with port 8000
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
-    return `${protocol}//${hostname}:8000/api`;
+    // Check if we are running locally or on a local area network (LAN) IP
+    const isLocal =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+
+    if (isLocal) {
+      return `${protocol}//${hostname}:8000/api`;
+    }
   }
-  return "http://localhost:8000/api";
+  return "https://nammafit-backend-django.onrender.com/api";
 };
 
 export const BASE_URL = getApiBaseUrl();
