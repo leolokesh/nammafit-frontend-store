@@ -3,9 +3,10 @@ import type {
   LoginResponse,
   User,
   Fabric,
-  Fit,
+  SizeChart,
   Product,
   Measurement,
+  WearCategory,
 } from "@/types";
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -37,14 +38,26 @@ export const fabricApi = {
 
   create: (data: Omit<Fabric, "id">) =>
     api.post<Fabric>("/products/fabrics/", data),
+
+  update: (id: number, data: Partial<Omit<Fabric, "id">>) =>
+    api.patch<Fabric>(`/products/fabrics/${id}/`, data),
+
+  delete: (id: number) =>
+    api.delete(`/products/fabrics/${id}/`),
 };
 
-// ─── Fits ─────────────────────────────────────────────────────────────────────
-export const fitApi = {
-  list: () => api.get<Fit[]>("/products/fits/"),
+// ─── SizeCharts ───────────────────────────────────────────────────────────────
+export const sizeChartApi = {
+  list: () => api.get<SizeChart[]>("/products/size-charts/"),
 
-  create: (fit_name: string) =>
-    api.post<Fit>("/products/fits/", { fit_name }),
+  create: (data: { name: string; fit: string; wear_category: WearCategory }) =>
+    api.post<SizeChart>("/products/size-charts/", data),
+
+  update: (id: number, data: Partial<SizeChart>) =>
+    api.patch<SizeChart>(`/products/size-charts/${id}/`, data),
+
+  delete: (id: number) =>
+    api.delete(`/products/size-charts/${id}/`),
 };
 
 // ─── Products ─────────────────────────────────────────────────────────────────
@@ -56,6 +69,9 @@ export const productApi = {
 
   update: (id: number, data: Partial<Omit<Product, "id" | "fabric_name">>) =>
     api.patch<Product>(`/products/products/${id}/`, data),
+
+  delete: (id: number) =>
+    api.delete(`/products/products/${id}/`),
 };
 
 // ─── Measurements ─────────────────────────────────────────────────────────────
@@ -67,4 +83,29 @@ export const measurementApi = {
 
   update: (id: number, data: Partial<Measurement>) =>
     api.patch<Measurement>(`/products/measurements/${id}/`, data),
+
+  delete: (id: number) =>
+    api.delete(`/products/measurements/${id}/`),
+};
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+export const publicApi = {
+  getUserProfile: (userId: number) =>
+    api.get<User>(`/users/public/${userId}/`),
+
+  getUserProducts: (userId: number) =>
+    api.get<Product[]>(`/products/public/user/${userId}/`),
+
+  recommendSize: (payload: {
+    product_id: number;
+    height: number;
+    weight: number;
+    age: number;
+    shape: string;
+    usual_size: string;
+    fit_pref: string;
+    fit_issues: string[];
+    measurements: Record<string, number | null> | null;
+  }) =>
+    api.post<any>("/products/findRightFit/", payload),
 };

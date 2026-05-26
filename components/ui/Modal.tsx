@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -25,6 +26,12 @@ export default function Modal({
   size = "md",
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -40,22 +47,27 @@ export default function Modal({
   }, [isOpen]);
 
   if (!isOpen) return null;
+  if (!mounted) return null;
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
       onClick={(e) => e.target === overlayRef.current && onClose()}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm animate-fade-in" />
+      <div 
+        className="absolute inset-0 backdrop-blur-sm animate-fade-in" 
+        style={{ backgroundColor: "rgba(0, 0, 0, 0.75)" }}
+      />
 
-      {/* Panel */}
+      {/* Panel (Solid Opaque Background to remove transparency) */}
       <div
-        className={`relative w-full ${sizeMap[size]} glass-card rounded-2xl shadow-2xl shadow-indigo-950/40 animate-slide-up`}
+        className={`relative w-full ${sizeMap[size]} border border-white/10 rounded-2xl shadow-2xl shadow-black/70 animate-slide-up flex flex-col max-h-[90vh]`}
+        style={{ backgroundColor: "#0c1a18" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        <div className="flex items-center justify-between p-6 border-b border-white/10 flex-shrink-0">
           <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
           <button
             onClick={onClose}
@@ -64,8 +76,9 @@ export default function Modal({
             <X size={18} />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

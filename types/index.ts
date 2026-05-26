@@ -5,8 +5,10 @@ export interface User {
   email: string;
   company_name: string;
   website: string;
-  reference_id: string;
+  store_id: string;
   phone_number: string;
+  recommendations_count?: number;
+  last_recommendation_at?: string | null;
 }
 
 export interface AuthTokens {
@@ -31,14 +33,19 @@ export interface Fabric {
   weight_category: WeightCategory;
 }
 
-// ─── Fit ──────────────────────────────────────────────────────────────────────
-export interface Fit {
+export type WearCategory = "TOPWEAR" | "BOTTOMWEAR" | "FULL_BODY";
+
+// ─── SizeChart ────────────────────────────────────────────────────────────────
+export interface SizeChart {
   id: number;
-  fit_name: string;
+  name: string;
+  fit: string;
+  wear_category: WearCategory;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ─── Product ──────────────────────────────────────────────────────────────────
-export type WearCategory = "TOPWEAR" | "BOTTOMWEAR" | "FULLBODY";
 
 export interface ProductImage {
   id?: number;
@@ -51,6 +58,7 @@ export interface Product {
   wear_category: WearCategory;
   fabric: number;
   fabric_name?: string;
+  size_chart?: number | null;
   images: ProductImage[];
 }
 
@@ -59,8 +67,7 @@ export type SizeLabel = "XS" | "S" | "M" | "L" | "XL";
 
 export interface Measurement {
   id?: number;
-  product: number;
-  fit: number;
+  size_chart: number;
   size_label: SizeLabel;
   bust?: number | null;
   shoulder?: number | null;

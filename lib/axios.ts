@@ -1,6 +1,19 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-const BASE_URL = "http://localhost:8000/api";
+export const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined") {
+    // If we're on the client side, use the current host's IP/hostname with port 8000
+    const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    return `${protocol}//${hostname}:8000/api`;
+  }
+  return "http://localhost:8000/api";
+};
+
+export const BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -21,6 +34,13 @@ api.interceptors.request.use(
 );
 
 // ─── Response interceptor: refresh on 401 ────────────────────────────────────
+// IMPORTANT: Skip refresh logic for the login/token endpoint itself.
+// A 401 on /token/ means wrong credentials — not an expired token.
+const AUTH_ENDPOINTS = ["/token/", "/token/refresh/"];
+
+const isAuthEndpoint = (url?: string) =>
+  AUTH_ENDPOINTS.some((ep) => url?.includes(ep));
+
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: unknown) => void;
@@ -45,7 +65,19 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // ── Skip refresh for auth endpoints (login / token refresh) ──────────────
+    // A 401 here means wrong credentials, not an expired token.
+    if (isAuthEndpoint(originalRequest?.url)) {
+      return Promise.reject(error);
+    }
+
+    // ── Network / no-response errors — just reject, don't redirect ────────────
+    if (!error.response) {
+      return Promise.reject(error);
+    }
+
+    // ── Only attempt refresh once per request ─────────────────────────────────
+    if (error.response.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -66,7 +98,9 @@ api.interceptors.response.use(
         typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
 
       if (!refreshToken) {
-        // No refresh token — force logout
+        // No refresh token — session expired, force logout
+        processQueue(error, null);
+        isRefreshing = false;
         if (typeof window !== "undefined") {
           localStorage.clear();
           window.location.href = "/login";
