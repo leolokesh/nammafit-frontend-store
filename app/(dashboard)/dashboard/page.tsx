@@ -94,8 +94,8 @@ function StatCard({
         ) : (
           <p className={`font-bold text-slate-100 leading-none ${valueClassName || "text-xl sm:text-2xl"}`}>{value}</p>
         )}
-        <p className="text-[10px] sm:text-xs text-slate-400 font-medium uppercase tracking-[0.08em] mt-2 leading-none">{label}</p>
-        {sub && <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-none">{sub}</p>}
+        <p className="text-[9px] sm:text-xs text-slate-400 font-medium uppercase tracking-[0.08em] mt-2 leading-none">{label}</p>
+        {sub && <p className="text-[9px] sm:text-[11px] text-slate-500 mt-1 leading-none">{sub}</p>}
       </div>
     </div>
   );
