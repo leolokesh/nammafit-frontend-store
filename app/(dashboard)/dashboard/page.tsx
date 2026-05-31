@@ -61,25 +61,26 @@ function StatCard({
   valueClassName,
 }: StatCardProps) {
   return (
-    <div className="glass-card-hover rounded-2xl p-5 flex flex-col gap-4 relative overflow-hidden">
+    <div className="glass-card-hover rounded-2xl p-4 sm:p-5 flex flex-col gap-3 sm:gap-4 relative overflow-hidden">
       {/* Subtle bg glow */}
       <div className={`absolute -top-6 -right-6 w-20 h-20 rounded-full blur-2xl opacity-20 ${gradient}`} />
 
       {/* Top row: icon + badge */}
       <div className="flex items-start justify-between">
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${gradient}`}>
-          <Icon size={22} className={iconColor} />
+        <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${gradient}`}>
+          <Icon size={18} className={`${iconColor} sm:hidden`} />
+          <Icon size={22} className={`${iconColor} hidden sm:block`} />
         </div>
         {badge && (
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.color}`}>
+          <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded-full border tracking-wide ${badge.color}`}>
             {badge.text}
           </span>
         )}
         {live && (
-          <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
-            <span className="relative flex h-2 w-2">
+          <span className="flex items-center gap-1 text-[8px] sm:text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
+            <span className="relative flex h-1 w-1 sm:h-1.5 sm:w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              <span className="relative inline-flex rounded-full h-1 w-1 sm:h-1.5 sm:w-1.5 bg-emerald-500" />
             </span>
             Live
           </span>
@@ -87,14 +88,14 @@ function StatCard({
       </div>
 
       {/* Value */}
-      <div>
+      <div className="mt-1">
         {loading ? (
           <div className="h-8 w-16 bg-white/5 rounded-lg animate-pulse mb-1" />
         ) : (
-          <p className={`font-bold text-slate-100 leading-none ${valueClassName || "text-2xl"}`}>{value}</p>
+          <p className={`font-bold text-slate-100 leading-none ${valueClassName || "text-xl sm:text-2xl"}`}>{value}</p>
         )}
-        <p className="text-xs text-slate-500 mt-1.5 font-medium">{label}</p>
-        {sub && <p className="text-[11px] text-slate-600 mt-0.5">{sub}</p>}
+        <p className="text-[10px] sm:text-xs text-slate-400 font-medium uppercase tracking-[0.08em] mt-2 leading-none">{label}</p>
+        {sub && <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-none">{sub}</p>}
       </div>
     </div>
   );
@@ -452,12 +453,15 @@ export default function DashboardPage() {
   if (!user) return null;
 
   return (
-    <div className="page-container py-8 space-y-8">
+    <div className="page-container py-6 sm:py-8 space-y-6 sm:space-y-8">
       {/* ── Header ───────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="section-title">Welcome back, {user.username} 👋</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <span className="block text-[10px] sm:text-xs uppercase tracking-[0.2em] text-[#B0E4CC]/80 font-bold mb-1 sm:mb-1.5">Overview</span>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-slate-100 leading-snug">
+            Welcome back, <span className="text-[#B0E4CC]">{user.username}</span> 👋
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">
             Manage your profile and account settings
           </p>
         </div>

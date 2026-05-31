@@ -40,7 +40,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed left-0 top-0 h-screen z-30 flex flex-col border-r border-[#B0E4CC]/10 bg-[#091413] transition-all duration-300 ${
+        className={`fixed left-0 top-0 h-[100dvh] z-30 flex flex-col border-r border-[#B0E4CC]/10 bg-[#091413] transition-all duration-300 ${
           isCollapsed ? "md:w-20" : "md:w-64"
         } w-64 ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"

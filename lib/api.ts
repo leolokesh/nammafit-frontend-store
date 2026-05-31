@@ -22,7 +22,7 @@ export const authApi = {
 export const userApi = {
   getMe: () => api.get<User>("/users/me/"),
 
-  updateMe: (data: Partial<Pick<User, "company_name" | "website" | "phone_number">>) =>
+  updateMe: (data: Partial<Pick<User, "email" | "company_name" | "website" | "phone_number">>) =>
     api.patch<User>("/users/me/", data),
 
   changePassword: (payload: {
