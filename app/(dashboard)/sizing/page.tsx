@@ -69,14 +69,6 @@ function getColumnsForCategory(cat: string) {
   }
 }
 
-// Convert value between units
-const convertValue = (val: number, toUnit: "inch" | "cm") => {
-  if (toUnit === "inch") {
-    return Number((val / 2.54).toFixed(1));
-  } else {
-    return Number((val * 2.54).toFixed(1));
-  }
-};
 
 // Detect gaps in selected sizes
 function detectGaps(activeSizes: string[]): string[] {
@@ -108,8 +100,9 @@ export default function SizingPage() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // unit state: "cm" (default in DB) or "inch"
-  const [unit, setUnit] = useState<"cm" | "inch">("cm");
+  // unit is always "inch"
+  const unit = "inch";
+  const [displayUnit, setDisplayUnit] = useState<"cm" | "inch">("inch");
 
   // Accordion state
   const [expandedChartId, setExpandedChartId] = useState<number | null>(null);
@@ -135,7 +128,6 @@ export default function SizingPage() {
 
   // Saving states
   const [savingChartId, setSavingChartId] = useState<number | null>(null);
-  const [isConverting, setIsConverting] = useState(false);
 
   // Load Sizing data from backend and format local state
   const loadAllData = async () => {
@@ -158,11 +150,28 @@ export default function SizingPage() {
         // Find measurements for this size chart in database
         const chartMeas = mRes.data.filter((m) => m.size_chart === chart.id);
 
+        // Check if database values are stored in cm or double-converted (max bust/hip > 145)
+        let dbUnitStatus: "inch" | "cm" | "double_cm" = "inch";
+        const maxBustOrHip = Math.max(
+          ...chartMeas.map((m) => Math.max(Number(m.bust) || 0, Number(m.hip) || 0))
+        );
+        if (maxBustOrHip > 145) {
+          dbUnitStatus = "double_cm";
+        } else if (maxBustOrHip > 50) {
+          dbUnitStatus = "cm";
+        }
+
         chartMeas.forEach((m) => {
           const parseDbVal = (v: any) => {
             if (v === null || v === undefined || v === "") return undefined;
-            const num = Number(v);
-            return isNaN(num) || num === 0 ? undefined : num;
+            let num = Number(v);
+            if (isNaN(num) || num === 0) return undefined;
+            if (dbUnitStatus === "double_cm") {
+              num = Number((num / 6.4516).toFixed(1));
+            } else if (dbUnitStatus === "cm") {
+              num = Number((num / 2.54).toFixed(1));
+            }
+            return num;
           };
 
           let bust = parseDbVal(m.bust);
@@ -172,15 +181,6 @@ export default function SizingPage() {
           let inseam = parseDbVal(m.inseam);
           let thighs = parseDbVal(m.thighs);
 
-          // If unit is set to inch, convert loaded cm values
-          if (unit === "inch") {
-            if (bust !== undefined) bust = Number((bust / 2.54).toFixed(1));
-            if (shoulder !== undefined) shoulder = Number((shoulder / 2.54).toFixed(1));
-            if (waist !== undefined) waist = Number((waist / 2.54).toFixed(1));
-            if (hip !== undefined) hip = Number((hip / 2.54).toFixed(1));
-            if (inseam !== undefined) inseam = Number((inseam / 2.54).toFixed(1));
-            if (thighs !== undefined) thighs = Number((thighs / 2.54).toFixed(1));
-          }
 
           localMap[chart.id][m.size_label] = {
             bust,
@@ -210,47 +210,6 @@ export default function SizingPage() {
     loadAllData();
   }, []); // Only load on mount, conversion is done on the fly in-memory
 
-  // Handle unit toggle with on-the-fly value conversions
-  const handleUnitToggle = (newUnit: "cm" | "inch") => {
-    if (newUnit === unit) return;
-
-    setIsConverting(true);
-
-    setTimeout(() => {
-      setLocalMeasurements((prev) => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach((chartIdStr) => {
-          const chartId = Number(chartIdStr);
-          const chart = sizeCharts.find(sc => sc.id === chartId);
-          if (!chart) return;
-          const columns = getColumnsForCategory(chart.wear_category);
-
-          const sizesMap = updated[chartId];
-          Object.keys(sizesMap).forEach((size) => {
-            const meas = { ...sizesMap[size] };
-            columns.forEach((col) => {
-              const key = col as keyof Measurement;
-              const val = meas[key];
-              if (val !== undefined && val !== null && (val as any) !== "") {
-                const parsedVal = Number(val);
-                if (!isNaN(parsedVal) && parsedVal > 0) {
-                  meas[key] = convertValue(parsedVal, newUnit) as any;
-                }
-              }
-            });
-            sizesMap[size] = meas;
-          });
-        });
-        return updated;
-      });
-      setUnit(newUnit);
-      setIsConverting(false);
-      addToast(
-        `Sizing template matrix is adapted to ${newUnit === "cm" ? "cm" : "inches"}!`,
-        "success"
-      );
-    }, 600);
-  };
 
   const handleCloseNewChartModal = () => {
     setNewChartModalOpen(false);
@@ -401,13 +360,22 @@ export default function SizingPage() {
           const formVals = Object.fromEntries(
             columns.map((col) => {
               let val = sizeVals[col as keyof Measurement] ?? null;
-              // If unit is currently inches, convert back to centimeters for canonical DB storage
-              if (typeof val === "number" && unit === "inch") {
-                val = Number((val * 2.54).toFixed(1));
+              if (val !== null && val !== undefined && (val as any) !== "") {
+                const parsedVal = Number(val);
+                if (!isNaN(parsedVal)) {
+                  val = parsedVal;
+                }
               }
               return [col, val];
             })
           );
+
+          console.log("executeSave payload debug:", {
+            size,
+            unit,
+            sizeVals,
+            formVals
+          });
 
           const payload = {
             size_chart: chartId,
@@ -458,22 +426,24 @@ export default function SizingPage() {
           {/* Unit Toggle Switch */}
           <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
             <button
-              onClick={() => handleUnitToggle("cm")}
+              disabled={loadingData}
+              onClick={() => setDisplayUnit("cm")}
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                unit === "cm"
+                displayUnit === "cm"
                   ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 shadow-lg shadow-indigo-500/5"
                   : "text-slate-500 hover:text-slate-300"
-              }`}
+              } ${loadingData ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               cm
             </button>
             <button
-              onClick={() => handleUnitToggle("inch")}
+              disabled={loadingData}
+              onClick={() => setDisplayUnit("inch")}
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                unit === "inch"
+                displayUnit === "inch"
                   ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 shadow-lg shadow-indigo-500/5"
                   : "text-slate-500 hover:text-slate-300"
-              }`}
+              } ${loadingData ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               inch
             </button>
@@ -568,7 +538,7 @@ export default function SizingPage() {
                     <div className="space-y-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                          Sizing Template Matrix ({unit})
+                          Sizing Template Matrix ({displayUnit})
                         </h4>
 
                         <div className="flex items-center gap-3">
@@ -614,7 +584,7 @@ export default function SizingPage() {
                                       key={col}
                                       className="text-left px-4 py-3 text-xs text-slate-500 uppercase tracking-wider font-medium min-w-[130px]"
                                     >
-                                      {COLUMN_LABELS[col]} ({unit})
+                                      {COLUMN_LABELS[col]} ({displayUnit})
                                     </th>
                                   ))}
                                   <th className="text-right px-5 py-3 text-xs text-slate-500 uppercase tracking-wider font-medium w-16 min-w-[70px]">
@@ -640,6 +610,9 @@ export default function SizingPage() {
                                         </td>
                                         {columns.map((col) => {
                                           const val = m[col];
+                                          const displayVal = val !== undefined && val !== null && (val as any) !== ""
+                                            ? (displayUnit === "cm" ? Number((Number(val) * 2.54).toFixed(1)) : val)
+                                            : "";
                                           return (
                                             <td key={col} className="px-3 py-2 text-slate-300 min-w-[130px]">
                                               <div className="relative flex items-center">
@@ -649,7 +622,7 @@ export default function SizingPage() {
                                                   min="0"
                                                   placeholder="—"
                                                   className="w-full max-w-[120px] bg-slate-900/50 border border-white/5 focus:border-[#408a71]/50 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#408a71]/30 transition-all"
-                                                  value={val || ""}
+                                                  value={displayVal}
                                                   onChange={(e) => {
                                                     const valStr = e.target.value;
                                                     // Restrict: max 4 digits before dot, max 2 digits after dot
@@ -660,13 +633,16 @@ export default function SizingPage() {
                                                       valStr === ""
                                                         ? undefined
                                                         : Number(valStr);
+                                                    const valInInches = parsed !== undefined
+                                                      ? (displayUnit === "cm" ? Number((parsed / 2.54).toFixed(2)) : parsed)
+                                                      : undefined;
                                                     setLocalMeasurements((prev) => ({
                                                       ...prev,
                                                       [chart.id]: {
                                                         ...prev[chart.id],
                                                         [size]: {
                                                           ...prev[chart.id][size],
-                                                          [col]: parsed,
+                                                          [col]: valInInches,
                                                         },
                                                       },
                                                     }));
@@ -851,18 +827,6 @@ export default function SizingPage() {
         </div>
       </Modal>
 
-      {/* Conversion Loading Modal */}
-      <Modal
-        isOpen={isConverting}
-        onClose={() => {}}
-        title=""
-        size="sm"
-      >
-        <div className="flex flex-col items-center justify-center py-6 space-y-4">
-          <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
-          <p className="text-sm font-medium text-slate-300">Adapting template matrix...</p>
-        </div>
-      </Modal>
     </div>
   );
 }

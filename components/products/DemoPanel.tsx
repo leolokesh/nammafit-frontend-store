@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ArrowLeft,
   CheckCircle2,
+  Info,
 } from "lucide-react";
 import { publicApi } from "@/lib/api";
 import type { Product } from "@/types";
@@ -21,14 +22,16 @@ import Select from "@/components/ui/Select";
 const API_BASE = "https://fitintelligence.onrender.com";
 
 const SHAPE_OPTIONS = [
+  { v: "full_body", label: "Full Body" },
+  { v: "slim", label: "Slim" },
   { v: "regular", label: "Regular" },
-  { v: "relaxed", label: "Relaxed" },
+  { v: "curvy", label: "Curvy" },
+  { v: "super_curvy", label: "Super Curvy" },
 ];
 
 const SIZE_OPTIONS = ["3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL", "7XL", "8XL", "9XL", "10XL"];
 
 const FIT_OPTIONS = [
-  { v: "slim", label: "Slim" },
   { v: "regular", label: "Regular" },
   { v: "relaxed", label: "Relaxed" },
 ];
@@ -51,6 +54,32 @@ const MEASUREMENT_KEYS = [
   { k: "thigh", label: "Thigh" },
   { k: "inseam", label: "Inseam" },
 ];
+
+function getKeysForCategory(category: string) {
+  if (category === "TOPWEAR") {
+    return ["shoulder", "bust", "waist", "hip"];
+  }
+  if (category === "BOTTOMWEAR") {
+    return ["waist", "hip", "thigh", "inseam"];
+  }
+  return ["bust", "waist", "hip", "shoulder", "thigh", "inseam"];
+}
+
+const getSessionCustomerId = (): number => {
+  if (typeof window === "undefined") return 0;
+  let idStr = sessionStorage.getItem("nammafit_customer_id");
+  if (!idStr) {
+    // Generate a random 13 digit number
+    let val = "";
+    val += Math.floor(Math.random() * 9) + 1; // 1-9
+    for (let i = 0; i < 12; i++) {
+      val += Math.floor(Math.random() * 10); // 0-9
+    }
+    sessionStorage.setItem("nammafit_customer_id", val);
+    idStr = val;
+  }
+  return Number(idStr);
+};
 
 const LOADING_MESSAGES = [
   "Mapping your fit signature…",
@@ -133,7 +162,7 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
   const [shape, setShape] = useState("regular");
   const [usualSize, setUsualSize] = useState("M");
   const [fitPref, setFitPref] = useState("regular");
-  const [fitIssues, setFitIssues] = useState<string[]>([]);
+  const [fitIssues, setFitIssues] = useState<string[]>(["good"]);
 
   const [measureToggle, setMeasureToggle] = useState(false);
   const [measurements, setMeasurements] = useState<any>(null);
@@ -142,6 +171,33 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
   const [recoStatus, setRecoStatus] = useState("idle");
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
+  const [showShapeGuide, setShowShapeGuide] = useState(false);
+  const [widgetUnit, setWidgetUnit] = useState<"cm" | "inch">("inch");
+  const [hasEdited, setHasEdited] = useState(false);
+
+  const activeKeys = getKeysForCategory(product.wear_category);
+
+  const handleWidgetUnitToggle = (newUnit: "cm" | "inch") => {
+    if (newUnit === widgetUnit) return;
+    if (measurements) {
+      const next = { ...measurements };
+      MEASUREMENT_KEYS.forEach(({ k }) => {
+        const val = next[k];
+        if (val !== undefined && val !== null && val !== "") {
+          const num = Number(val);
+          if (!isNaN(num)) {
+            if (newUnit === "inch") {
+              next[k] = Number((num / 2.54).toFixed(1));
+            } else {
+              next[k] = Number((num * 2.54).toFixed(1));
+            }
+          }
+        }
+      });
+      setMeasurements(next);
+    }
+    setWidgetUnit(newUnit);
+  };
 
   useEffect(() => {
     setRecoStatus("idle");
@@ -150,6 +206,9 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
     setEstimateStatus("idle");
     setMeasureToggle(false);
     setMeasurements(null);
+    setWidgetUnit("inch");
+    setHasEdited(false);
+    setFitIssues(["good"]);
   }, [resetSignal, product]);
 
   const toggleFitIssue = (v: string) => {
@@ -192,8 +251,15 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
       });
       const next: any = {};
       MEASUREMENT_KEYS.forEach(({ k }) => {
-        const m = data?.body?.[k]?.mean;
-        next[k] = typeof m === "number" ? Math.round(m) : "";
+        let m = data?.body?.[k]?.mean;
+        if (typeof m === "number") {
+          if (widgetUnit === "inch") {
+            m = Number((m / 2.54).toFixed(1));
+          } else {
+            m = Math.round(m);
+          }
+        }
+        next[k] = typeof m === "number" ? m : "";
       });
       setMeasurements(next);
       setEstimateStatus("ready");
@@ -206,6 +272,7 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
 
   const onToggleMeasurements = (next: boolean) => {
     setMeasureToggle(next);
+    setHasEdited(false);
     if (next) {
       fetchEstimate();
     } else {
@@ -222,6 +289,7 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
 
     const payload = {
       product_id: product.id,
+      customer_id: getSessionCustomerId(),
       height: Number(height),
       weight: Number(weight),
       age: Number(age),
@@ -230,17 +298,33 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
       fit_pref: fitPref,
       fit_issues: fitIssues,
       measurements:
-        measureToggle && measurements
+        measureToggle && measurements && hasEdited
           ? Object.fromEntries(
-              MEASUREMENT_KEYS.map(({ k }) => [
-                k,
-                measurements[k] === "" || measurements[k] == null
-                  ? null
-                  : Number(measurements[k]),
-              ])
+              MEASUREMENT_KEYS.map(({ k }) => {
+                if (!activeKeys.includes(k)) {
+                  return [k, null];
+                }
+                const val = measurements[k];
+                if (val === "" || val == null) {
+                  return [k, null];
+                }
+                let num = Number(val);
+                if (isNaN(num)) {
+                  return [k, null];
+                }
+                if (widgetUnit === "inch") {
+                  num = Number((num * 2.54).toFixed(1));
+                }
+                return [k, num];
+              })
             )
           : Object.fromEntries(MEASUREMENT_KEYS.map(({ k }) => [k, null])),
     };
+
+    console.log("DemoPanel onSubmit payload debug:", {
+      widgetUnit,
+      payload
+    });
 
     try {
       const { data } = await publicApi.recommendSize(payload);
@@ -293,6 +377,12 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
               setMeasurements={setMeasurements}
               recoStatus={recoStatus}
               error={error}
+              showShapeGuide={showShapeGuide}
+              setShowShapeGuide={setShowShapeGuide}
+              widgetUnit={widgetUnit}
+              handleWidgetUnitToggle={handleWidgetUnitToggle}
+              activeKeys={activeKeys}
+              setHasEdited={setHasEdited}
             />
           </motion.div>
         )}
@@ -331,6 +421,12 @@ function FormView({
   setMeasurements,
   recoStatus,
   error,
+  showShapeGuide,
+  setShowShapeGuide,
+  widgetUnit,
+  handleWidgetUnitToggle,
+  activeKeys,
+  setHasEdited,
 }: any) {
   return (
     <form onSubmit={onSubmit} data-testid="demo-form" className="p-6 md:p-9 text-left">
@@ -382,7 +478,17 @@ function FormView({
             />
           </div>
           <div>
-            <FieldLabel>Shape</FieldLabel>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] uppercase tracking-[0.22em] text-white/55">Shape</span>
+              <button
+                type="button"
+                onClick={() => setShowShapeGuide(true)}
+                className="text-[#B0E4CC] hover:text-white transition-colors cursor-pointer focus:outline-none flex items-center justify-center p-0.5"
+                title="Body Shape Guide"
+              >
+                <Info size={14} />
+              </button>
+            </div>
             <ValarSelect
               testid="demo-input-shape"
               value={shape}
@@ -441,10 +547,38 @@ function FormView({
 
         {/* Helper + toggle */}
         <div className="rounded-2xl border border-[#B0E4CC]/12 bg-[#091413]/70 p-4">
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-[12px] tracking-[0.18em] uppercase text-white/75">
-              Enter actual measurements
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] tracking-[0.18em] uppercase text-white/75">
+                Enter actual measurements
+              </span>
+              {measureToggle && (
+                <div className="flex items-center gap-0.5 p-0.5 bg-white/5 border border-white/10 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => handleWidgetUnitToggle("inch")}
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+                      widgetUnit === "inch"
+                        ? "bg-[#408A71] text-white"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    inch
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWidgetUnitToggle("cm")}
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+                      widgetUnit === "cm"
+                        ? "bg-[#408A71] text-white"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    cm
+                  </button>
+                </div>
+              )}
+            </div>
             <Switch checked={measureToggle} onCheckedChange={onToggleMeasurements} />
           </div>
 
@@ -476,7 +610,7 @@ function FormView({
                   )}
                   {estimateStatus === "ready" && measurements && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {MEASUREMENT_KEYS.map(({ k, label }) => (
+                      {MEASUREMENT_KEYS.filter(({ k }) => activeKeys.includes(k)).map(({ k, label }) => (
                         <div key={k}>
                           <div className="text-[10px] uppercase tracking-[0.2em] text-white/45 mb-1.5">
                             {label}
@@ -486,16 +620,17 @@ function FormView({
                               type="number"
                               data-testid={`demo-measurement-${k}`}
                               value={measurements[k] ?? ""}
-                              onChange={(e) =>
+                              onChange={(e) => {
                                 setMeasurements((m: any) => ({
                                   ...m,
                                   [k]: e.target.value,
-                                }))
-                              }
-                              className="w-full h-9 bg-transparent px-3 text-white/90 text-sm focus:outline-none"
+                                }));
+                                setHasEdited(true);
+                              }}
+                              className="flex-1 min-w-0 h-9 bg-transparent pl-3 pr-1 text-white/90 text-sm focus:outline-none"
                             />
-                            <span className="pr-3 text-[10px] uppercase tracking-[0.2em] text-white/40">
-                              cm
+                            <span className="flex-shrink-0 pr-3 text-[10px] uppercase tracking-[0.2em] text-[#B0E4CC]/40">
+                              {widgetUnit}
                             </span>
                           </div>
                         </div>
@@ -522,6 +657,53 @@ function FormView({
       >
         <Sparkles size={16} /> Recommend My Size
       </button>
+
+      {/* ── Body Shape Guide Modal ── */}
+      {showShapeGuide && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-[#0c1a18] border border-[#B0E4CC]/20 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative text-left">
+            <button
+              type="button"
+              onClick={() => setShowShapeGuide(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer text-lg focus:outline-none"
+            >
+              &times;
+            </button>
+            <h4 className="text-sm font-semibold text-[#B0E4CC] tracking-wider uppercase flex items-center gap-2 mb-5">
+              <Info size={14} /> Body Shape Guide
+            </h4>
+            <div className="space-y-4 text-xs">
+              <div className="border-b border-[#B0E4CC]/10 pb-3">
+                <div className="font-semibold text-slate-200 text-[13px]">Full Body</div>
+                <div className="text-slate-400 mt-1">Bust is bigger than hips</div>
+              </div>
+              <div className="border-b border-[#B0E4CC]/10 pb-3">
+                <div className="font-semibold text-slate-200 text-[13px]">Slim</div>
+                <div className="text-slate-400 mt-1">Bust and hips are almost the same size</div>
+              </div>
+              <div className="border-b border-[#B0E4CC]/10 pb-3">
+                <div className="font-semibold text-slate-200 text-[13px]">Regular</div>
+                <div className="text-slate-400 mt-1">Hips are a little bigger than bust</div>
+              </div>
+              <div className="border-b border-[#B0E4CC]/10 pb-3">
+                <div className="font-semibold text-slate-200 text-[13px]">Curvy</div>
+                <div className="text-slate-400 mt-1">Hips are noticeably bigger than bust</div>
+              </div>
+              <div className="pb-1">
+                <div className="font-semibold text-slate-200 text-[13px]">Super Curvy</div>
+                <div className="text-slate-400 mt-1">Hips are much bigger than bust</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowShapeGuide(false)}
+              className="btn-primary w-full mt-6 text-xs py-2.5 rounded-xl cursor-pointer"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
@@ -781,12 +963,6 @@ function SizeFitCard({ size, fitNotes, score, isBest }: any) {
 }
 
 function FitRow({ part, kind }: any) {
-  const idx = kind === "tight" ? 0 : kind === "perfect" ? 1 : 2;
-  const colorBy: any = {
-    tight: "bg-amber-300",
-    perfect: "bg-[#B0E4CC]",
-    loose: "bg-sky-300",
-  };
   const labelColor: any = {
     tight: "text-amber-200/85",
     perfect: "text-[#B0E4CC]",
@@ -794,19 +970,11 @@ function FitRow({ part, kind }: any) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="w-[68px] shrink-0 text-[11.5px] text-white/65">
+    <div className="flex items-center justify-between text-[12px] py-0.5">
+      <span className="text-white/60">
         {PART_LABELS[part as keyof typeof PART_LABELS] || part}
-      </div>
-      <div className="hidden sm:flex flex-1 items-center gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className={`h-1.5 flex-1 rounded-full ${i === idx ? colorBy[kind] : "bg-white/10"}`}
-          />
-        ))}
-      </div>
-      <span className={`text-[10.5px] tracking-[0.18em] uppercase shrink-0 ${labelColor[kind] || "text-white/55"}`}>
+      </span>
+      <span className={`tracking-[0.12em] uppercase font-semibold text-[11px] ${labelColor[kind] || "text-white/55"}`}>
         {kind}
       </span>
     </div>

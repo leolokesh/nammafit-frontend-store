@@ -500,7 +500,7 @@ export default function DashboardPage() {
           sub="till now"
           gradient="bg-gradient-to-br from-amber-500 to-orange-500"
           iconColor="text-white"
-          badge={{ text: "+12%", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" }}
+          badge={{ text: "Usage", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" }}
         />
 
         {/* Last Activity */}

@@ -98,6 +98,7 @@ export const publicApi = {
 
   recommendSize: (payload: {
     product_id: number;
+    customer_id: number;
     height: number;
     weight: number;
     age: number;
