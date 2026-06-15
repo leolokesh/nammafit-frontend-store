@@ -36,58 +36,111 @@ const categoryLabel: Record<WearCategory, string> = {
   FULL_BODY: "Full Body",
 };
 
-function ImageCarousel({ images }: { images: { image_url: string }[] }) {
+function ImageCarousel({
+  images,
+  onZoom,
+}: {
+  images: { image_url: string }[];
+  onZoom?: (url: string) => void;
+}) {
   const [idx, setIdx] = useState(0);
+
   if (!images || images.length === 0) {
     return (
-      <div className="h-40 bg-slate-800/50 rounded-xl flex flex-col items-center justify-center text-slate-600">
+      <div className="h-56 bg-slate-900/50 rounded-t-3xl flex flex-col items-center justify-center text-slate-600 border-b border-white/5">
         <ImageIcon size={28} />
-        <span className="text-xs mt-1">No images</span>
+        <span className="text-xs mt-2">No images available</span>
       </div>
     );
   }
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIdx((i) => (i - 1 + images.length) % images.length);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIdx((i) => (i + 1) % images.length);
+  };
+
+  const handleZoomClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onZoom) {
+      onZoom(images[idx].image_url);
+    }
+  };
+
   return (
-    <div className="relative h-40 rounded-xl overflow-hidden bg-slate-800/50 group">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={images[idx].image_url}
-        alt="product"
-        className="w-full h-full object-contain transition-transform duration-500"
-        onError={(e) => {
-          (e.target as HTMLImageElement).src =
-            `https://placehold.co/300x200/1e293b/6366f1?text=Image+${idx + 1}`;
-        }}
-      />
+    <div className="relative h-56 rounded-t-3xl overflow-hidden bg-slate-950/50 group border-b border-white/5">
+      {/* Blurred background layer */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={images[idx].image_url}
+          alt="Blur Background"
+          className="w-full h-full object-cover blur-md opacity-30 scale-110"
+        />
+      </div>
+
+      {/* Dark gradient mask bottom */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10 z-10 pointer-events-none" />
+
+      {/* Foreground image */}
+      <div className="relative w-full h-full flex items-center justify-center z-10 p-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={images[idx].image_url}
+          alt="product"
+          className="max-w-full max-h-full object-contain transition-all duration-500"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src =
+              `https://placehold.co/300x200/1e293b/6366f1?text=Image+${idx + 1}`;
+          }}
+        />
+      </div>
+
+      {/* Zoom Button inside Carousel */}
+      {onZoom && (
+        <button
+          onClick={handleZoomClick}
+          className="absolute top-3 right-3 z-30 p-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white hover:bg-slate-900 transition-all opacity-0 group-hover:opacity-100 shadow-lg cursor-pointer"
+          title="Zoom Image"
+        >
+          <Eye size={14} />
+        </button>
+      )}
+
       {images.length > 1 && (
         <>
           <button
-            onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white opacity-75 hover:opacity-100 transition-opacity"
+            onClick={handlePrev}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
           >
-            <ChevronLeft size={12} />
+            <ChevronLeft size={16} />
           </button>
           <button
-            onClick={() => setIdx((i) => (i + 1) % images.length)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white opacity-75 hover:opacity-100 transition-opacity"
+            onClick={handleNext}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
           >
-            <ChevronRight size={12} />
+            <ChevronRight size={16} />
           </button>
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex gap-1 px-2 py-1 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/5">
             {images.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setIdx(i)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIdx(i);
+                }}
                 className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  i === idx ? "bg-white w-4" : "bg-white/50"
+                  i === idx ? "bg-[#B0E4CC] w-3" : "bg-slate-500 hover:bg-slate-400"
                 }`}
               />
             ))}
           </div>
         </>
       )}
-      <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur text-white text-[10px]">
-        {idx + 1}/{images.length}
-      </div>
     </div>
   );
 }
@@ -109,19 +162,14 @@ function ProductCard({
 
   return (
     <>
-      <div className="glass-card-hover rounded-2xl overflow-hidden animate-slide-up flex flex-col h-full justify-between">
+      <div className="glass-card-hover rounded-3xl overflow-hidden animate-slide-up flex flex-col h-full justify-between border border-white/5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-[#B0E4CC]/5 hover:border-[#B0E4CC]/30">
         <div>
-          {/* Carousel + View button */}
+          {/* Carousel */}
           <div className="relative group">
-            <ImageCarousel images={product.images} />
-            {product.images.length > 0 && (
-              <button
-                onClick={() => setLightboxSrc(product.images[0].image_url)}
-                className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/60 backdrop-blur text-white text-[10px] font-medium opacity-90 hover:opacity-100 transition-opacity hover:bg-black/80"
-              >
-                <Eye size={11} /> View
-              </button>
-            )}
+            <ImageCarousel
+              images={product.images}
+              onZoom={(url) => setLightboxSrc(url)}
+            />
           </div>
           <div className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
@@ -133,10 +181,10 @@ function ProductCard({
                 variant={categoryVariant[product.wear_category]}
               />
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Tag size={11} />
+            <div className="flex items-center gap-1.5 bg-[#B0E4CC]/5 border border-[#B0E4CC]/10 text-slate-300/95 px-2.5 py-1 rounded-lg w-fit text-[11px] font-medium transition-all hover:bg-[#B0E4CC]/10 hover:border-[#B0E4CC]/20">
+              <Tag size={11} className="text-[#B0E4CC]" />
               <span>{fabricName}</span>
-              <span className="text-slate-700">·</span>
+              <span className="text-[#B0E4CC]/30">·</span>
               <span>{product.images.length} image{product.images.length !== 1 ? "s" : ""}</span>
             </div>
           </div>
@@ -146,7 +194,7 @@ function ProductCard({
         <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-white/5 bg-white/[0.01]">
           <button
             onClick={() => onEdit(product)}
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-indigo-300 transition-colors"
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-[#B0E4CC] transition-colors"
           >
             <Edit2 size={12} /> Edit Product
           </button>

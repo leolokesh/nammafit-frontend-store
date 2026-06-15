@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "**" },
     ],
   },
-  allowedDevOrigins: ["10.27.40.92:3000", "10.27.40.92"],
+  allowedDevOrigins: ["10.27.40.92:3000", "10.27.40.92" ,"10.242.68.92"],
 };
 
 export default nextConfig;

@@ -40,46 +40,101 @@ const categoryLabel: Record<WearCategory, string> = {
   FULL_BODY: "Full Body",
 };
 
-function ImageCarousel({ images }: { images: { image_url: string }[] }) {
+function ImageCarousel({
+  images,
+  onZoom,
+}: {
+  images: { image_url: string }[];
+  onZoom?: (url: string) => void;
+}) {
   const [idx, setIdx] = useState(0);
 
   if (!images || images.length === 0) {
     return (
-      <div className="h-48 bg-slate-900/50 rounded-t-2xl flex flex-col items-center justify-center text-slate-600 border-b border-white/5">
+      <div className="h-56 bg-slate-900/50 rounded-t-3xl flex flex-col items-center justify-center text-slate-600 border-b border-white/5">
         <Shirt size={32} />
         <span className="text-xs mt-2">No images available</span>
       </div>
     );
   }
 
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIdx((i) => (i - 1 + images.length) % images.length);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIdx((i) => (i + 1) % images.length);
+  };
+
+  const handleZoomClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onZoom) {
+      onZoom(images[idx].image_url);
+    }
+  };
+
   return (
-    <div className="relative h-48 rounded-t-2xl overflow-hidden bg-slate-900/50 group border-b border-white/5">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={images[idx].image_url}
-        alt="Product View"
-        className="w-full h-full object-contain transition-all duration-500"
-      />
+    <div className="relative h-56 rounded-t-3xl overflow-hidden bg-slate-950/50 group border-b border-white/5">
+      {/* Blurred background layer */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={images[idx].image_url}
+          alt="Blur Background"
+          className="w-full h-full object-cover blur-md opacity-30 scale-110"
+        />
+      </div>
+
+      {/* Dark gradient mask bottom */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10 z-10 pointer-events-none" />
+
+      {/* Foreground image */}
+      <div className="relative w-full h-full flex items-center justify-center z-10 p-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={images[idx].image_url}
+          alt="Product View"
+          className="max-w-full max-h-full object-contain transition-all duration-500"
+        />
+      </div>
+
+      {/* Zoom Button inside Carousel */}
+      {onZoom && (
+        <button
+          onClick={handleZoomClick}
+          className="absolute top-3 right-3 z-30 p-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white hover:bg-slate-900 transition-all opacity-0 group-hover:opacity-100 shadow-lg cursor-pointer"
+          title="Zoom Image"
+        >
+          <Eye size={14} />
+        </button>
+      )}
+
       {images.length > 1 && (
         <>
           <button
-            onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-950/70 border border-white/10 text-white flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity hover:bg-slate-950"
+            onClick={handlePrev}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
           >
-            <ChevronLeft size={14} />
+            <ChevronLeft size={16} />
           </button>
           <button
-            onClick={() => setIdx((i) => (i + 1) % images.length)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-950/70 border border-white/10 text-white flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity hover:bg-slate-950"
+            onClick={handleNext}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
           >
-            <ChevronRight size={14} />
+            <ChevronRight size={16} />
           </button>
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 px-1.5 py-0.5 rounded-full bg-slate-950/40 backdrop-blur-sm">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex gap-1 px-2 py-1 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/5">
             {images.map((_, i) => (
-              <div
+              <button
                 key={i}
-                className={`w-1 h-1 rounded-full transition-all ${
-                  i === idx ? "bg-indigo-400 w-2.5" : "bg-slate-500"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIdx(i);
+                }}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                  i === idx ? "bg-[#B0E4CC] w-3" : "bg-slate-500 hover:bg-slate-400"
                 }`}
               />
             ))}
@@ -294,20 +349,15 @@ export default function ShareCatalogPage() {
                   {filteredProducts.map((product) => (
                     <div
                       key={product.id}
-                      className="glass-card-hover rounded-2xl overflow-hidden flex flex-col h-full justify-between"
+                      className="glass-card-hover rounded-3xl overflow-hidden flex flex-col h-full justify-between border border-white/5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-[#B0E4CC]/5 hover:border-[#B0E4CC]/30"
                     >
                       <div className="flex flex-col h-full">
                         {/* Image Carousel */}
                         <div className="relative group flex-shrink-0">
-                          <ImageCarousel images={product.images} />
-                          {product.images && product.images.length > 0 && (
-                            <button
-                              onClick={() => setLightboxSrc(product.images[0].image_url)}
-                              className="absolute top-2 left-2 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur text-white text-[10px] font-bold opacity-90 hover:opacity-100 transition-opacity hover:bg-black/80 cursor-pointer"
-                            >
-                              <Eye size={12} /> View Zoom
-                            </button>
-                          )}
+                          <ImageCarousel
+                            images={product.images}
+                            onZoom={(url) => setLightboxSrc(url)}
+                          />
                         </div>
 
                         <div className="p-4 flex-1 flex flex-col justify-between">
@@ -322,8 +372,8 @@ export default function ShareCatalogPage() {
                               />
                             </div>
 
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <Tag size={11} className="text-slate-600" />
+                            <div className="flex items-center gap-1.5 bg-[#B0E4CC]/5 border border-[#B0E4CC]/10 text-slate-300/95 px-2.5 py-1 rounded-lg w-fit text-[11px] font-medium transition-all hover:bg-[#B0E4CC]/10 hover:border-[#B0E4CC]/20">
+                              <Tag size={11} className="text-[#B0E4CC]" />
                               <span>{product.fabric_name || "Premium Fabric"}</span>
                             </div>
                           </div>
@@ -331,9 +381,9 @@ export default function ShareCatalogPage() {
                           <div className="pt-3 border-t border-white/5 mt-4">
                             <button
                               onClick={() => handleProductClick(product)}
-                              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 hover:bg-indigo-500/20 hover:text-indigo-200 transition-all cursor-pointer"
+                              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 hover:from-[#408a71] hover:to-[#285A48] hover:shadow-lg hover:shadow-[#B0E4CC]/10 active:scale-[0.98] transition-all cursor-pointer"
                             >
-                              <Sparkles size={12} />
+                              <Sparkles size={12} className="text-[#B0E4CC] animate-pulse" />
                               <span>Find My Size</span>
                             </button>
                           </div>

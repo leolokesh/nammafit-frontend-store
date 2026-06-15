@@ -18,6 +18,7 @@ import {
 import { publicApi } from "@/lib/api";
 import type { Product } from "@/types";
 import Select from "@/components/ui/Select";
+import { BodyScan } from "@/components/scan/BodyScan";
 
 const API_BASE = "https://fitintelligence.onrender.com";
 
@@ -65,7 +66,7 @@ function getKeysForCategory(category: string) {
   return ["bust", "waist", "hip", "shoulder", "thigh", "inseam"];
 }
 
-const getSessionCustomerId = (): number => {
+export const getSessionCustomerId = (): number => {
   if (typeof window === "undefined") return 0;
   let idStr = sessionStorage.getItem("nammafit_customer_id");
   if (!idStr) {
@@ -156,6 +157,7 @@ interface DemoPanelProps {
 }
 
 export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
+  const [showBodyScan, setShowBodyScan] = useState(true);
   const [height, setHeight] = useState(175);
   const [weight, setWeight] = useState(70);
   const [age, setAge] = useState(25);
@@ -209,6 +211,7 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
     setWidgetUnit("inch");
     setHasEdited(false);
     setFitIssues(["good"]);
+    setShowBodyScan(true);
   }, [resetSignal, product]);
 
   const toggleFitIssue = (v: string) => {
@@ -342,6 +345,15 @@ export function DemoPanel({ product, resetSignal }: DemoPanelProps) {
     setResult(null);
     setError("");
   };
+
+  if (showBodyScan) {
+    return (
+      <BodyScan
+        onComplete={() => setShowBodyScan(false)}
+        onCancel={() => setShowBodyScan(false)}
+      />
+    );
+  }
 
   return (
     <div className="conic-border rounded-3xl overflow-hidden shadow-[0_40px_120px_-60px_rgba(176,228,204,0.25)] bg-[#091413]">
