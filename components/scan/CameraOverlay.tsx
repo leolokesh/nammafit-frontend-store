@@ -11,115 +11,113 @@ export function CameraOverlay({ type }: CameraOverlayProps) {
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 z-20 select-none">
       {/* Top Banner Guide */}
       <div className="w-full flex justify-center mt-2 animate-fade-in">
-        <div className="px-4 py-2 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/10 text-[11px] font-bold text-[#B0E4CC] tracking-wider uppercase shadow-xl flex items-center gap-2">
+        <div className="px-4 py-2 rounded-full bg-slate-950/90 backdrop-blur-md border border-[#B0E4CC]/30 text-[11px] font-bold text-[#B0E4CC] tracking-wider uppercase shadow-xl flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-[#B0E4CC] animate-pulse" />
           {type === "front" ? "Align Front Profile" : "Align Side Profile"}
         </div>
       </div>
 
       {/* SVG Outline Overlay */}
-      <div className="flex-1 w-full flex items-center justify-center min-h-0 relative my-4">
+      <div className="flex-1 w-full flex items-center justify-center min-h-0 relative my-2">
         {type === "front" ? (
-          // Front body outline overlay
+          // Front body outline overlay (Woman Silhouette, Maximized Sizing)
           <svg
-            className="w-full max-w-[340px] h-full max-h-[82%] opacity-65 text-[#B0E4CC]/40 drop-shadow-[0_0_15px_rgba(176,228,204,0.15)] transition-all duration-500"
+            className="w-full max-w-[460px] h-[95%] max-h-[95%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
             viewBox="0 0 400 600"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Symmetrical front outline */}
+            {/* Enlarged, stretched female silhouette coordinates for easier alignment */}
             <path
               d="
-                M 200,60 
-                C 175,60 170,90 170,110 
-                C 170,125 180,135 180,140
-                C 170,143 145,152 135,160 
-                C 120,172 110,195 110,215
-                C 110,230 115,280 110,310
-                C 105,330 95,350 90,370
-                C 85,385 95,395 105,395
-                C 115,395 125,370 128,340
-                C 132,305 138,275 142,240
-                C 142,270 145,300 148,340
-                C 152,380 155,420 152,470
-                C 149,510 142,545 138,565
-                C 135,575 142,580 152,580
-                C 165,580 175,540 182,490
-                C 188,445 195,400 200,380
-                C 205,400 212,445 218,490
-                C 225,540 235,580 248,580
-                C 258,580 265,575 262,565
-                C 258,545 251,510 248,470
-                C 245,420 248,380 252,340
-                C 255,300 258,270 258,240
-                C 262,275 268,305 272,340
-                C 275,370 285,395 295,395
-                C 305,395 315,385 310,370
-                C 305,350 295,330 290,310
-                C 285,280 290,230 290,215
-                C 290,195 280,172 265,160
-                C 255,152 230,143 220,140
-                C 220,135 230,125 230,110
-                C 230,90 225,60 200,60
+                M 200,10
+                C 155,10 150,45 150,65
+                C 150,80 170,85 170,95
+                C 170,105 130,112 110,120
+                C 80,128 60,140 60,165
+                C 60,190 70,220 60,255
+                C 50,280 20,325 35,355
+                C 42,370 52,380 72,380
+                C 92,380 92,360 95,335
+                C 98,300 102,265 104,230
+                C 104,265 109,300 115,335
+                C 120,370 126,415 120,465
+                C 112,515 100,555 90,580
+                C 86,590 98,595 116,595
+                C 140,595 158,550 168,495
+                C 178,445 188,400 200,380
+                C 212,400 222,445 232,495
+                C 242,595 260,595 284,595
+                C 302,595 314,590 310,580
+                C 300,555 288,515 280,465
+                C 274,415 280,370 285,335
+                C 291,300 296,265 296,230
+                C 298,265 302,300 305,335
+                C 308,360 308,380 328,380
+                C 348,380 358,370 365,355
+                C 380,325 350,280 340,255
+                C 330,220 340,190 340,165
+                C 340,140 320,128 290,120
+                C 270,112 230,105 230,95
+                C 230,85 250,80 250,65
+                C 250,45 245,10 200,10
                 Z
               "
               stroke="currentColor"
-              strokeWidth="2.5"
-              strokeDasharray="6 4"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-            {/* Guide markers */}
-            <circle cx="200" cy="100" r="15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-            <line x1="200" y1="20" x2="200" y2="580" stroke="currentColor" strokeWidth="1" strokeDasharray="2 4" opacity="0.2" />
-            <line x1="50" y1="380" x2="350" y2="380" stroke="currentColor" strokeWidth="1" strokeDasharray="2 4" opacity="0.2" />
+            
+            {/* Horizontal Alignment Guides */}
+            <line x1="60" y1="165" x2="340" y2="165" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" /> {/* Shoulders */}
+            <line x1="60" y1="255" x2="340" y2="255" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" /> {/* Hips */}
+            <line x1="120" y1="465" x2="280" y2="465" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" /> {/* Knees */}
+
+            {/* Vertical Center Axis */}
+            <line x1="200" y1="15" x2="200" y2="585" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 6" opacity="0.3" />
           </svg>
         ) : (
-          // Side profile outline overlay
+          // Symmetrical Simple Side Profile outline overlay (Head Circle + Symmetrical Torso & Legs Column)
           <svg
-            className="w-full max-w-[280px] h-full max-h-[82%] opacity-65 text-[#B0E4CC]/40 drop-shadow-[0_0_15px_rgba(176,228,204,0.15)] transition-all duration-500"
+            className="w-full max-w-[340px] h-[92%] max-h-[92%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
             viewBox="0 0 300 600"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Posture profile facing right */}
+            {/* Simple Side Profile Head Circle */}
+            <circle cx="150" cy="80" r="42" stroke="currentColor" strokeWidth="5" />
+            
+            {/* Simple Symmetrical Side Body & Legs column */}
             <path
               d="
-                M 140,60
-                C 120,60 115,85 115,100
-                C 115,115 125,125 130,130
-                C 120,135 110,145 105,160
-                C 98,180 98,200 102,230
-                C 105,250 115,280 118,310
-                C 122,340 120,370 115,400
-                C 110,430 105,470 110,510
-                C 112,530 115,550 120,570
-                C 123,578 132,580 138,580
-                C 145,580 152,572 150,560
-                C 145,530 142,500 145,460
-                C 148,420 152,380 158,340
-                C 162,310 168,280 168,250
-                C 168,220 162,190 158,160
-                C 155,145 150,135 145,130
-                C 148,125 152,118 152,100
-                C 152,85 150,60 140,60
+                M 135,130
+                C 110,140 100,165 100,200
+                C 100,240 110,280 110,340
+                C 110,400 98,480 104,580
+                H 196
+                C 202,480 190,400 190,340
+                C 190,280 200,240 200,200
+                C 200,165 190,140 165,130
                 Z
               "
               stroke="currentColor"
-              strokeWidth="2.5"
-              strokeDasharray="6 4"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-            {/* Guide markers */}
-            <circle cx="135" cy="95" r="15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-            <line x1="135" y1="20" x2="135" y2="580" stroke="currentColor" strokeWidth="1" strokeDasharray="2 4" opacity="0.2" />
+            {/* Vertical Center Axis */}
+            <line x1="150" y1="15" x2="150" y2="585" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 6" opacity="0.3" />
           </svg>
         )}
       </div>
 
       {/* Alignment tips banner */}
       <div className="w-full flex flex-col items-center gap-1.5 mb-2 text-center">
-        <p className="text-[11px] text-slate-300 max-w-[280px] bg-slate-950/75 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/5 shadow-md">
+        <p className="text-[11px] text-slate-300 max-w-[320px] bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 shadow-md leading-relaxed">
           {type === "front" 
-            ? "Stand straight facing the camera with your arms slightly away from your sides." 
-            : "Turn 90° to the side (fully sideways) and stand straight in a neutral posture."}
+            ? "Position yourself within the center guide and stand straight facing the camera." 
+            : "Turn sideways within the guide and stand straight in a neutral posture."}
         </p>
       </div>
     </div>

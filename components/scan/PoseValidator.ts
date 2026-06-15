@@ -13,24 +13,15 @@ export const PoseValidator = {
     // Key landmark indices
     const L_SHOULDER = 11;
     const R_SHOULDER = 12;
-    const L_WRIST = 15;
-    const R_WRIST = 16;
     const L_HIP = 23;
     const R_HIP = 24;
     const L_KNEE = 25;
     const R_KNEE = 26;
-    const L_ANKLE = 27;
-    const R_ANKLE = 28;
 
-    const keyJoints = [
-      L_SHOULDER, R_SHOULDER,
-      L_WRIST, R_WRIST,
-      L_HIP, R_HIP,
-      L_KNEE, R_KNEE,
-      L_ANKLE, R_ANKLE
-    ];
+    // Require shoulders, hips, and knees to be visible
+    const keyJoints = [L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, L_KNEE, R_KNEE];
 
-    // 1. Entire body visibility check
+    // 1. Visibility check (shoulders, hips, knees must be in frame)
     const MIN_VISIBILITY = 0.55;
     const missingJoints = keyJoints.filter(idx => {
       const landmark = landmarks[idx];
@@ -38,58 +29,57 @@ export const PoseValidator = {
     });
 
     if (missingJoints.length > 0) {
-      issues.push("Entire body not visible. Step back fully.");
+      issues.push("Step back so your knees and shoulders are in frame.");
       return { isValid: false, issues };
     }
 
     const lSh = landmarks[L_SHOULDER];
     const rSh = landmarks[R_SHOULDER];
-    const lWrist = landmarks[L_WRIST];
-    const rWrist = landmarks[R_WRIST];
     const lHip = landmarks[L_HIP];
     const rHip = landmarks[R_HIP];
-    const lAnk = landmarks[L_ANKLE];
-    const rAnk = landmarks[R_ANKLE];
 
-    // 2. User Centered in Frame
+    // 2. User Centered in Frame (Balanced parameter: 0.38 to 0.62)
     const midHipX = (lHip.x + rHip.x) / 2;
-    if (midHipX < 0.40 || midHipX > 0.60) {
+    if (midHipX < 0.38 || midHipX > 0.62) {
       issues.push("Center your body in the frame.");
     }
 
-    // 3. Camera Level (Not Tilted)
+    // 3. Camera Level (Balanced parameter: 0.07)
     const shoulderTilt = Math.abs(lSh.y - rSh.y);
     const hipTilt = Math.abs(lHip.y - rHip.y);
-    if (shoulderTilt > 0.05 || hipTilt > 0.05) {
+    if (shoulderTilt > 0.07 || hipTilt > 0.07) {
       issues.push("Keep the camera level (do not tilt).");
     }
 
-    // 4. User Standing Straight
+    // 4. User Standing Straight (Balanced parameter: 0.09)
     const midShoulderX = (lSh.x + rSh.x) / 2;
-    const midAnkleX = (lAnk.x + rAnk.x) / 2;
-    // Check vertical alignment
-    if (Math.abs(midShoulderX - midHipX) > 0.07 || Math.abs(midHipX - midAnkleX) > 0.07) {
-      issues.push("Stand straight and face the camera.");
+    if (Math.abs(midShoulderX - midHipX) > 0.09) {
+      issues.push("Stand straight facing the camera.");
     }
 
-    // 5. Arms slightly away from body
-    // Wrists x coordinates should be clearly outside/separated from hips x coordinates
-    // In normalized coords, x goes from 0 (left of frame) to 1 (right of frame)
-    // Left wrist is L_WRIST (idx 15). Right wrist is R_WRIST (idx 16)
-    // Left hip is L_HIP (idx 23), Right hip is R_HIP (idx 24)
-    // For a person facing the camera:
-    // Right side of body is left side of frame (smaller x), Left side of body is right side of frame (larger x)
-    // So right wrist x should be less than right hip x, left wrist x should be greater than left hip x.
-    const rSeparation = rHip.x - rWrist.x;
-    const lSeparation = lWrist.x - lHip.x;
+    // 5. Arms Position Check (Only enforced if wrists are visible in frame)
+    const L_WRIST = 15;
+    const R_WRIST = 16;
+    const lWrist = landmarks[L_WRIST];
+    const rWrist = landmarks[R_WRIST];
 
-    if (rSeparation < 0.035 || lSeparation < 0.035) {
-      issues.push("Keep arms slightly away from your sides.");
+    if (
+      lWrist && 
+      rWrist && 
+      (lWrist.visibility ?? 0) > MIN_VISIBILITY && 
+      (rWrist.visibility ?? 0) > MIN_VISIBILITY
+    ) {
+      const rSeparation = rHip.x - rWrist.x;
+      const lSeparation = lWrist.x - lHip.x;
+
+      if (rSeparation < 0.04 || lSeparation < 0.04) {
+        issues.push("Keep arms slightly away from your sides.");
+      }
     }
 
     return {
       isValid: issues.length === 0,
-      issues,
+      issues: issues.length > 0 ? issues : ["Ready to Capture"],
     };
   },
 
@@ -99,68 +89,61 @@ export const PoseValidator = {
       return { isValid: false, issues: ["No person detected"] };
     }
 
-    // Key landmark indices for profile view
     const L_SHOULDER = 11;
     const R_SHOULDER = 12;
     const L_HIP = 23;
     const R_HIP = 24;
     const L_KNEE = 25;
     const R_KNEE = 26;
-    const L_ANKLE = 27;
-    const R_ANKLE = 28;
 
-    // In side profile, at least one set (left or right side) should be highly visible
     const MIN_VISIBILITY = 0.55;
     
+    // In side profile, shoulder, hip, and knee on the visible side must be in frame
     const leftSideVisible = 
       (landmarks[L_SHOULDER]?.visibility ?? 0) > MIN_VISIBILITY &&
       (landmarks[L_HIP]?.visibility ?? 0) > MIN_VISIBILITY &&
-      (landmarks[L_KNEE]?.visibility ?? 0) > MIN_VISIBILITY &&
-      (landmarks[L_ANKLE]?.visibility ?? 0) > MIN_VISIBILITY;
+      (landmarks[L_KNEE]?.visibility ?? 0) > MIN_VISIBILITY;
 
     const rightSideVisible = 
       (landmarks[R_SHOULDER]?.visibility ?? 0) > MIN_VISIBILITY &&
       (landmarks[R_HIP]?.visibility ?? 0) > MIN_VISIBILITY &&
-      (landmarks[R_KNEE]?.visibility ?? 0) > MIN_VISIBILITY &&
-      (landmarks[R_ANKLE]?.visibility ?? 0) > MIN_VISIBILITY;
+      (landmarks[R_KNEE]?.visibility ?? 0) > MIN_VISIBILITY;
 
     if (!leftSideVisible && !rightSideVisible) {
-      issues.push("Entire body profile not visible. Step back.");
+      issues.push("Step back so your profile knee and shoulder are visible.");
       return { isValid: false, issues };
     }
 
-    // Determine which side is facing the camera
+    // Determine active side
     const isLeftSide = leftSideVisible;
     const sh = isLeftSide ? landmarks[L_SHOULDER] : landmarks[R_SHOULDER];
     const hip = isLeftSide ? landmarks[L_HIP] : landmarks[R_HIP];
-    const ank = isLeftSide ? landmarks[L_ANKLE] : landmarks[R_ANKLE];
 
-    // 1. Centered in Frame
+    // 1. Centered in Frame (Balanced parameter: 0.38 to 0.62)
     if (hip.x < 0.38 || hip.x > 0.62) {
       issues.push("Center your body in the frame.");
     }
 
-    // 2. Profile Overlap (Shopper is turned sideways)
-    // The width of the shoulders in side view should be small compared to front view
+    // 2. Profile Overlap / Turned Sideways (Scale-Invariant checks using shoulder-width-to-torso-height ratio)
     const lSh = landmarks[L_SHOULDER];
     const rSh = landmarks[R_SHOULDER];
-    const lHip = landmarks[L_HIP];
-    const rHip = landmarks[R_HIP];
     const shoulderWidth = Math.abs(lSh.x - rSh.x);
-    const hipWidth = Math.abs(lHip.x - rHip.x);
+    const torsoHeight = Math.abs(sh.y - hip.y);
+    const ratio = shoulderWidth / Math.max(torsoHeight, 0.1);
 
-    if (shoulderWidth > 0.15 || hipWidth > 0.15) {
-      issues.push("Turn fully sideways to the camera.");
+    // If ratio of shoulder width to torso height is large, they are facing the camera (not turned sideways)
+    if (ratio > 0.42) {
+      issues.push("Turn fully sideways (90°) to the camera.");
     }
 
-    // 3. Straight Alignment
-    if (Math.abs(sh.x - hip.x) > 0.08 || Math.abs(hip.x - ank.x) > 0.08) {
+    // 3. Straight Alignment (Balanced parameter: 0.09)
+    if (Math.abs(sh.x - hip.x) > 0.09) {
       issues.push("Stand straight with neutral posture.");
     }
 
     return {
       isValid: issues.length === 0,
-      issues,
+      issues: issues.length > 0 ? issues : ["Ready to Capture"],
     };
   }
 };

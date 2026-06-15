@@ -134,10 +134,11 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
           {camera.devices.length > 1 && (
             <button
               onClick={camera.toggleFacingMode}
-              className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 text-xs"
               title="Switch Camera"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={13} />
+              <span className="hidden sm:inline">Switch Camera</span>
             </button>
           )}
         </div>
@@ -153,7 +154,6 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
             ref={camera.webcamRef}
             screenshotFormat="image/jpeg"
             videoConstraints={{
-              deviceId: camera.activeDeviceId,
               facingMode: camera.facingMode,
               width: { ideal: 640 },
               height: { ideal: 480 },

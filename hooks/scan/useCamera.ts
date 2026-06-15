@@ -5,8 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 export function useCamera() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [activeDeviceId, setActiveDeviceId] = useState<string | undefined>(undefined);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [error, setError] = useState<string | null>(null);
   
   const webcamRef = useRef<any>(null);
@@ -14,30 +13,15 @@ export function useCamera() {
   // Check and list video devices
   const updateDevices = useCallback(async () => {
     try {
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = allDevices.filter(d => d.kind === "videoinput");
-      setDevices(videoDevices);
-      
-      // Select best default device (e.g. back camera if on mobile)
-      if (videoDevices.length > 0 && !activeDeviceId) {
-        // Find environment camera if possible
-        const backCamera = videoDevices.find(d => 
-          d.label.toLowerCase().includes("back") || 
-          d.label.toLowerCase().includes("rear") || 
-          d.label.toLowerCase().includes("environment")
-        );
-        if (backCamera) {
-          setActiveDeviceId(backCamera.deviceId);
-          setFacingMode("environment");
-        } else {
-          setActiveDeviceId(videoDevices[0].deviceId);
-          setFacingMode("user");
-        }
+      if (typeof window !== "undefined" && navigator.mediaDevices) {
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = allDevices.filter(d => d.kind === "videoinput");
+        setDevices(videoDevices);
       }
     } catch (err) {
       console.error("Error enumerating devices:", err);
     }
-  }, [activeDeviceId]);
+  }, []);
 
   // Request camera permission
   const requestPermission = useCallback(async () => {
@@ -76,7 +60,6 @@ export function useCamera() {
   // Switch facing mode
   const toggleFacingMode = useCallback(() => {
     setFacingMode(prev => (prev === "user" ? "environment" : "user"));
-    setActiveDeviceId(undefined); // Reset active device to let browser select ideal face
   }, []);
 
   // Initialize permission check
@@ -95,7 +78,6 @@ export function useCamera() {
     webcamRef,
     hasPermission,
     devices,
-    activeDeviceId,
     facingMode,
     error,
     toggleFacingMode,
