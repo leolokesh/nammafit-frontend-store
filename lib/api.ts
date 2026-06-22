@@ -7,6 +7,8 @@ import type {
   Product,
   Measurement,
   WearCategory,
+  Customer,
+  StitchingOrder,
 } from "@/types";
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -110,3 +112,32 @@ export const publicApi = {
   }) =>
     api.post<any>("/products/findRightFit/", payload),
 };
+
+// ─── Digital Ledger Customers ──────────────────────────────────────────────────
+export const customerApi = {
+  list: () => api.get<Customer[]>("/products/customers/"),
+
+  create: (data: Customer) =>
+    api.post<Customer>("/products/customers/", data),
+
+  update: (id: number, data: Partial<Customer>) =>
+    api.patch<Customer>(`/products/customers/${id}/`, data),
+
+  delete: (id: number) =>
+    api.delete(`/products/customers/${id}/`),
+};
+
+// ─── Digital Ledger Stitching Orders ──────────────────────────────────────────
+export const stitchingOrderApi = {
+  list: () => api.get<StitchingOrder[]>("/products/stitching-orders/"),
+
+  create: (data: StitchingOrder) =>
+    api.post<StitchingOrder>("/products/stitching-orders/", data),
+
+  update: (id: number, data: Partial<StitchingOrder>) =>
+    api.patch<StitchingOrder>(`/products/stitching-orders/${id}/`, data),
+
+  delete: (id: number) =>
+    api.delete(`/products/stitching-orders/${id}/`),
+};
+

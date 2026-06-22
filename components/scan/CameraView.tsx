@@ -107,7 +107,11 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
       // Get the hidden face detector ref inside faceEngine
       // We can use the helper we created in FaceMaskCanvas which handles local canvas detection
       // We'll pass the video element. It handles detection fallbacks internally as well
-      const maskedBase64 = await captureAndMaskFace(webcam.video, (faceEngine as any).faceDetectorRef?.current);
+      const maskedBase64 = await captureAndMaskFace(
+        webcam.video, 
+        (faceEngine as any).faceDetectorRef?.current,
+        latestLandmarksRef.current
+      );
       
       onCapture(maskedBase64, latestLandmarksRef.current);
     } catch (e) {

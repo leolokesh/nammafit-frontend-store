@@ -16,6 +16,7 @@ const pageLabels: Record<string, string> = {
   "/sizing": "Sizing Matrix",
   "/fabrics": "Fabric Library",
   "/fits": "Fit Settings",
+  "/digital-ledger": "Digital Ledger",
 };
 
 export default function TopBar() {

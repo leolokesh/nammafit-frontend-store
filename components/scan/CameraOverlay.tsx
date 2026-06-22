@@ -22,7 +22,7 @@ export function CameraOverlay({ type }: CameraOverlayProps) {
         {type === "front" ? (
           // Front body outline overlay (Woman Silhouette, Maximized Sizing)
           <svg
-            className="w-full max-w-[460px] h-[95%] max-h-[95%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
+            className="w-full max-w-[500px] h-[98%] max-h-[98%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
             viewBox="0 0 400 600"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -80,7 +80,7 @@ export function CameraOverlay({ type }: CameraOverlayProps) {
         ) : (
           // Symmetrical Simple Side Profile outline overlay (Head Circle + Symmetrical Torso & Legs Column)
           <svg
-            className="w-full max-w-[340px] h-[92%] max-h-[92%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
+            className="w-full max-w-[380px] h-[96%] max-h-[96%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
             viewBox="0 0 300 600"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"

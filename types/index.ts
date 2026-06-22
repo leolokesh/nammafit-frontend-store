@@ -60,6 +60,9 @@ export interface Product {
   fabric_name?: string;
   size_chart?: number | null;
   images: ProductImage[];
+  price?: number;
+  mrp?: number;
+  description?: string;
 }
 
 // ─── Measurement ──────────────────────────────────────────────────────────────
@@ -76,3 +79,48 @@ export interface Measurement {
   inseam?: number | null;
   thighs?: number | null;
 }
+
+// ─── Digital Ledger ────────────────────────────────────────────────────────────
+export interface CustomerMeasurements {
+  bust?: string | null;
+  shoulder?: string | null;
+  waist?: string | null;
+  hip?: string | null;
+  inseam?: string | null;
+  thigh?: string | null;
+  neck?: string | null;
+  sleeve_length?: string | null;
+  top_length?: string | null;
+  bottom_length?: string | null;
+}
+
+export interface Customer {
+  id?: number;
+  name: string;
+  phone: string;
+  height?: number | null;
+  weight?: number | null;
+  notes?: string;
+  measurements?: CustomerMeasurements | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type StitchingOrderStatus = "Pending" | "In Progress" | "Ready for Trial" | "Delivered";
+
+export interface StitchingOrder {
+  id?: number;
+  customer: number; // ID of the customer
+  customer_name?: string;
+  customer_phone?: string;
+  order_id?: string; // e.g. ORD-1001 (auto generated)
+  garment_type: string;
+  fabric_details?: string;
+  advance_amount: string; // Decimals are serialized as strings in JSON response
+  remaining_amount: string;
+  delivery_date: string; // YYYY-MM-DD
+  status: StitchingOrderStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+

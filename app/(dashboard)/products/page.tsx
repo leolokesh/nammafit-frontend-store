@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent } from "react";
 import { productApi, fabricApi, sizeChartApi, measurementApi } from "@/lib/api";
 import { useToastContext } from "@/contexts/ToastContext";
 import Modal from "@/components/ui/Modal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import Badge from "@/components/ui/Badge";
 import { MultiImageManager } from "@/components/ui/ImageUploader";
@@ -172,21 +173,41 @@ function ProductCard({
             />
           </div>
           <div className="p-4 space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-100 leading-snug flex-1">
-                {product.name}
-              </h3>
+            {/* Category & Fabric badges aligned at the top */}
+            <div className="flex flex-wrap gap-1.5 items-center">
               <Badge
                 label={categoryLabel[product.wear_category]}
                 variant={categoryVariant[product.wear_category]}
               />
+              <div className="flex items-center gap-1 bg-[#B0E4CC]/5 border border-[#B0E4CC]/10 text-slate-400 px-2 py-0.5 rounded-lg text-[10px] font-medium">
+                <Tag size={10} className="text-[#B0E4CC]" />
+                <span>{fabricName}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 bg-[#B0E4CC]/5 border border-[#B0E4CC]/10 text-slate-300/95 px-2.5 py-1 rounded-lg w-fit text-[11px] font-medium transition-all hover:bg-[#B0E4CC]/10 hover:border-[#B0E4CC]/20">
-              <Tag size={11} className="text-[#B0E4CC]" />
-              <span>{fabricName}</span>
-              <span className="text-[#B0E4CC]/30">·</span>
-              <span>{product.images.length} image{product.images.length !== 1 ? "s" : ""}</span>
-            </div>
+
+            {/* Product Name (Bold & Large) */}
+            <h3 className="text-sm font-bold text-slate-100 leading-snug">
+              {product.name}
+            </h3>
+
+            {/* Pricing Block (Large and prominent) */}
+            {product.price !== undefined && product.price !== null && (
+              <div className="flex items-baseline gap-2 pt-1">
+                <span className="text-xs font-extrabold text-[#B0E4CC]">
+                  ₹{product.price}
+                </span>
+                {product.mrp && product.mrp > product.price && (
+                  <>
+                    <span className="text-[10px] text-slate-500 line-through">
+                      ₹{product.mrp}
+                    </span>
+                    <span className="text-[8px] font-bold text-emerald-400 bg-emerald-950/50 px-1 py-0.5 rounded border border-emerald-500/10">
+                      {Math.round(((product.mrp - product.price) / product.mrp) * 100)}% OFF
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -244,6 +265,10 @@ export default function ProductsPage() {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
   
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  
   // Filters
   const [filterCat, setFilterCat] = useState<WearCategory | "ALL">("ALL");
   const [filterFit, setFilterFit] = useState<string>("");
@@ -253,6 +278,9 @@ export default function ProductsPage() {
     wear_category: "TOPWEAR" as WearCategory,
     fabric: 0,
     sizeChartId: "",
+    price: "",
+    mrp: "",
+    description: "",
     images: [{ image_url: "" }],
   });
 
@@ -297,6 +325,9 @@ export default function ProductsPage() {
       wear_category: "TOPWEAR",
       fabric: fabrics[0]?.id ?? 0,
       sizeChartId: "",
+      price: "",
+      mrp: "",
+      description: "",
       images: [{ image_url: "" }],
     });
   };
@@ -308,31 +339,49 @@ export default function ProductsPage() {
       wear_category: product.wear_category,
       fabric: product.fabric,
       sizeChartId: product.size_chart ? String(product.size_chart) : "",
+      price: product.price !== undefined && product.price !== null ? String(product.price) : "",
+      mrp: product.mrp !== undefined && product.mrp !== null ? String(product.mrp) : "",
+      description: product.description || "",
       images: product.images.length > 0 ? product.images.map(img => ({ image_url: img.image_url })) : [{ image_url: "" }],
     });
     setModalOpen(true);
   };
 
-  const handleDeleteClick = async (product: Product) => {
-    if (!confirm(`Are you sure you want to delete "${product.name}"? This will delete all its images and measurement mappings.`)) {
-      return;
-    }
+  const handleDeleteClick = (product: Product) => {
+    setProductToDelete(product);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    setDeleting(true);
     try {
-      await productApi.delete(product.id);
-      setProducts((prev) => prev.filter((p) => p.id !== product.id));
-      addToast(`Product "${product.name}" deleted successfully.`, "success");
+      await productApi.delete(productToDelete.id);
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+      addToast(`Product "${productToDelete.name}" deleted successfully.`, "success");
+      setDeleteModalOpen(false);
+      setProductToDelete(null);
     } catch {
       addToast("Failed to delete product.", "error");
+    } finally {
+      setDeleting(false);
     }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (form.price && form.mrp && Number(form.price) > Number(form.mrp)) {
+      addToast("Selling Price cannot be greater than MRP.", "warning");
+      return;
+    }
     const payload: any = {
       name: form.name,
       wear_category: form.wear_category,
       fabric: form.fabric,
       size_chart: form.sizeChartId ? Number(form.sizeChartId) : null,
+      price: form.price ? Number(form.price) : null,
+      mrp: form.mrp ? Number(form.mrp) : null,
+      description: form.description || null,
       images: form.images.filter((img) => img.image_url.trim() !== ""),
     };
     if (!form.name.trim()) {
@@ -490,6 +539,44 @@ export default function ProductsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="label-text">Selling Price (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="input-field"
+                placeholder="e.g., 999"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label-text">MRP (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="input-field"
+                placeholder="e.g., 1499"
+                value={form.mrp}
+                onChange={(e) => setForm({ ...form, mrp: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="label-text">Product Description</label>
+            <textarea
+              className="input-field min-h-[80px] py-2 resize-y"
+              placeholder="Provide a detailed description of this product..."
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="label-text">Wear Category</label>
               <Select
                 value={form.wear_category}
@@ -556,6 +643,18 @@ export default function ProductsPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setProductToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Product"
+        message={`Are you sure you want to delete "${productToDelete?.name}"? This will permanently delete all its images and measurement mappings. This action cannot be undone.`}
+        isLoading={deleting}
+      />
     </div>
   );
 }

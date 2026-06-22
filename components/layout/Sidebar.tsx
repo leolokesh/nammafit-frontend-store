@@ -9,6 +9,7 @@ import {
   Ruler,
   Layers,
   LogOut,
+  Scan,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/contexts/SidebarContext";
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/products", icon: Package, label: "Products" },
   { href: "/sizing", icon: Ruler, label: "Sizing" },
   { href: "/fabrics", icon: Layers, label: "Fabrics" },
+  { href: "/digital-ledger", icon: Scan, label: "Digital Ledger" },
 ];
 
 export default function Sidebar() {

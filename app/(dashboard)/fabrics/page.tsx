@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent } from "react";
 import { fabricApi } from "@/lib/api";
 import { useToastContext } from "@/contexts/ToastContext";
 import Modal from "@/components/ui/Modal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import Badge from "@/components/ui/Badge";
 import Select from "@/components/ui/Select";
@@ -93,6 +94,9 @@ export default function FabricsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editFabric, setEditFabric] = useState<Fabric | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [fabricToDelete, setFabricToDelete] = useState<Fabric | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState<Omit<Fabric, "id">>({
     name: "",
@@ -136,15 +140,25 @@ export default function FabricsPage() {
     setModalOpen(true);
   };
 
-  const handleDeleteClick = async (fabric: Fabric) => {
-    if (!confirm(`Are you sure you want to delete "${fabric.name}"? This will delete the fabric configuration.`)) return;
+  const handleDeleteClick = (fabric: Fabric) => {
+    setFabricToDelete(fabric);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!fabricToDelete) return;
+    setDeleting(true);
     try {
-      await fabricApi.delete(fabric.id);
-      setFabrics((prev) => prev.filter((f) => f.id !== fabric.id));
-      addToast(`Fabric "${fabric.name}" deleted successfully.`, "success");
+      await fabricApi.delete(fabricToDelete.id);
+      setFabrics((prev) => prev.filter((f) => f.id !== fabricToDelete.id));
+      addToast(`Fabric "${fabricToDelete.name}" deleted successfully.`, "success");
+      setDeleteModalOpen(false);
+      setFabricToDelete(null);
     } catch (err: any) {
       const errMsg = err.response?.data?.error || err.response?.data?.detail || "Failed to delete fabric.";
       addToast(errMsg, "error");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -295,6 +309,18 @@ export default function FabricsPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setFabricToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Fabric"
+        message={`Are you sure you want to delete the fabric "${fabricToDelete?.name}"? This will permanently delete the fabric configuration and cannot be undone.`}
+        isLoading={deleting}
+      />
     </div>
   );
 }

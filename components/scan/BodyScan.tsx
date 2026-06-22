@@ -11,11 +11,12 @@ import { getSessionCustomerId } from "@/components/products/DemoPanel";
 type ScanStep = "intro" | "front_scan" | "side_scan" | "preview" | "uploading";
 
 interface BodyScanProps {
-  onComplete: () => void;
+  onComplete: (measurements?: any) => void;
   onCancel: () => void;
+  mode?: "recommend" | "direct";
 }
 
-export function BodyScan({ onComplete, onCancel }: BodyScanProps) {
+export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanProps) {
   const [step, setStep] = useState<ScanStep>("intro");
   const [frontImage, setFrontImage] = useState<string>("");
   const [sideImage, setSideImage] = useState<string>("");
@@ -66,9 +67,13 @@ export function BodyScan({ onComplete, onCancel }: BodyScanProps) {
     };
 
     try {
-      await bodyScanApi.uploadBodyScan(payload);
-      // Success! Proceed to the manual details form (without pre-populating measurements)
-      onComplete();
+      if (mode === "direct") {
+        const res = await bodyScanApi.getDirectMeasurements(payload);
+        onComplete(res.measurements);
+      } else {
+        await bodyScanApi.uploadBodyScan(payload);
+        onComplete();
+      }
     } catch (err: any) {
       console.error("Error uploading body scan images:", err);
       setUploadError(err?.message || "Failed to upload body scan files. Please try again.");
@@ -140,7 +145,7 @@ export function BodyScan({ onComplete, onCancel }: BodyScanProps) {
               <div>
                 <h4 className="text-xs font-bold text-slate-200">Face Privacy Masking</h4>
                 <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
-                  Faces are covered by a solid black overlay in real-time. The original raw face image is never stored or uploaded.
+                  Faces are covered by a solid black overlay after taking the photo. The original raw face image is never stored or uploaded.
                 </p>
               </div>
             </div>
@@ -156,12 +161,14 @@ export function BodyScan({ onComplete, onCancel }: BodyScanProps) {
               <ArrowRight size={14} />
             </button>
             
-            <button
-              onClick={onCancel}
-              className="w-full py-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all text-center cursor-pointer"
-            >
-              Skip Scan & Enter Manually
-            </button>
+            {mode !== "direct" && (
+              <button
+                onClick={onCancel}
+                className="w-full py-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all text-center cursor-pointer"
+              >
+                Skip Scan & Enter Manually
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -171,7 +178,7 @@ export function BodyScan({ onComplete, onCancel }: BodyScanProps) {
         <CameraView
           type="front"
           onCapture={handleFrontCapture}
-          onCancel={onCancel}
+          onCancel={() => setStep("intro")}
         />
       )}
 
@@ -180,7 +187,7 @@ export function BodyScan({ onComplete, onCancel }: BodyScanProps) {
         <CameraView
           type="side"
           onCapture={handleSideCapture}
-          onCancel={onCancel}
+          onCancel={() => setStep("front_scan")}
         />
       )}
 

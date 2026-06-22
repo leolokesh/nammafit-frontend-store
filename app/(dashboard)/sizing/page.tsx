@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent } from "react";
 import { productApi, sizeChartApi, measurementApi } from "@/lib/api";
 import { useToastContext } from "@/contexts/ToastContext";
 import Modal from "@/components/ui/Modal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import Badge from "@/components/ui/Badge";
 import Select from "@/components/ui/Select";
@@ -129,6 +130,10 @@ export default function SizingPage() {
   // Saving states
   const [savingChartId, setSavingChartId] = useState<number | null>(null);
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [chartToDelete, setChartToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Load Sizing data from backend and format local state
   const loadAllData = async () => {
     try {
@@ -249,7 +254,7 @@ export default function SizingPage() {
   };
 
   // Delete sizing chart handler
-  const handleDeleteChart = async (chartId: number, chartName: string) => {
+  const handleDeleteChart = (chartId: number, chartName: string) => {
     // Check product links first
     const mappedProds = products.filter((p) => p.size_chart === chartId);
     if (mappedProds.length > 0) {
@@ -261,13 +266,17 @@ export default function SizingPage() {
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete the sizing chart "${chartName}"?`)) {
-      return;
-    }
+    setChartToDelete({ id: chartId, name: chartName });
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!chartToDelete) return;
+    setDeleting(true);
     try {
-      await sizeChartApi.delete(chartId);
-      setSizeCharts((prev) => prev.filter((sc) => sc.id !== chartId));
-      addToast(`Sizing Chart "${chartName}" deleted.`, "success");
+      await sizeChartApi.delete(chartToDelete.id);
+      setSizeCharts((prev) => prev.filter((sc) => sc.id !== chartToDelete.id));
+      addToast(`Sizing Chart "${chartToDelete.name}" deleted.`, "success");
       
       // Reload baseline
       const [pRes, mRes] = await Promise.all([
@@ -276,9 +285,13 @@ export default function SizingPage() {
       ]);
       setProducts(pRes.data);
       setMeasurements(mRes.data);
+      setDeleteModalOpen(false);
+      setChartToDelete(null);
     } catch (err: any) {
       const errMsg = err.response?.data?.error || err.response?.data?.detail || "Failed to delete sizing chart.";
       addToast(errMsg, "error");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -617,9 +630,8 @@ export default function SizingPage() {
                                             <td key={col} className="px-3 py-2 text-slate-300 min-w-[130px]">
                                               <div className="relative flex items-center">
                                                 <input
-                                                  type="number"
-                                                  step="0.1"
-                                                  min="0"
+                                                  type="text"
+                                                  inputMode="decimal"
                                                   placeholder="—"
                                                   className="w-full max-w-[120px] bg-slate-900/50 border border-white/5 focus:border-[#408a71]/50 rounded-lg px-2.5 py-1.5 text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#408a71]/30 transition-all"
                                                   value={displayVal}
@@ -827,6 +839,17 @@ export default function SizingPage() {
         </div>
       </Modal>
 
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setChartToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Sizing Chart"
+        message={`Are you sure you want to delete the sizing chart "${chartToDelete?.name}"? All associated measurement rows will be permanently deleted and cannot be undone.`}
+        isLoading={deleting}
+      />
     </div>
   );
 }

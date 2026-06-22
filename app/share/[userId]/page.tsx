@@ -22,6 +22,7 @@ import {
   Tag,
   ArrowUpRight,
   Sparkles,
+  Search,
 } from "lucide-react";
 
 // Wear categories definition matching the app config
@@ -51,7 +52,7 @@ function ImageCarousel({
 
   if (!images || images.length === 0) {
     return (
-      <div className="h-56 bg-slate-900/50 rounded-t-3xl flex flex-col items-center justify-center text-slate-600 border-b border-white/5">
+      <div className="h-56 bg-slate-900/50 rounded-none flex flex-col items-center justify-center text-slate-600 border-b border-white/5">
         <Shirt size={32} />
         <span className="text-xs mt-2">No images available</span>
       </div>
@@ -76,7 +77,7 @@ function ImageCarousel({
   };
 
   return (
-    <div className="relative h-56 rounded-t-3xl overflow-hidden bg-slate-950/50 group border-b border-white/5">
+    <div className="relative h-56 rounded-none overflow-hidden bg-slate-950/50 group border-b border-white/5">
       {/* Blurred background layer */}
       <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -104,7 +105,7 @@ function ImageCarousel({
       {onZoom && (
         <button
           onClick={handleZoomClick}
-          className="absolute top-3 right-3 z-30 p-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white hover:bg-slate-900 transition-all opacity-0 group-hover:opacity-100 shadow-lg cursor-pointer"
+          className="absolute top-3 right-3 z-30 p-2 rounded-none bg-slate-950/80 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white hover:bg-slate-900 transition-all opacity-0 group-hover:opacity-100 shadow-lg cursor-pointer"
           title="Zoom Image"
         >
           <Eye size={14} />
@@ -115,17 +116,17 @@ function ImageCarousel({
         <>
           <button
             onClick={handlePrev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-none bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
           >
             <ChevronLeft size={16} />
           </button>
           <button
             onClick={handleNext}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-none bg-slate-950/80 border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-900 shadow-md cursor-pointer"
           >
             <ChevronRight size={16} />
           </button>
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex gap-1 px-2 py-1 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/5">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex gap-1 px-2 py-1 rounded-none bg-slate-950/60 backdrop-blur-md border border-white/5">
             {images.map((_, i) => (
               <button
                 key={i}
@@ -133,7 +134,7 @@ function ImageCarousel({
                   e.stopPropagation();
                   setIdx(i);
                 }}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                className={`w-1.5 h-1.5 rounded-none transition-all ${
                   i === idx ? "bg-[#B0E4CC] w-3" : "bg-slate-500 hover:bg-slate-400"
                 }`}
               />
@@ -162,6 +163,13 @@ export default function ShareCatalogPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [recoModalOpen, setRecoModalOpen] = useState(false);
 
+  // Product detail modal states
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+
   const handleProductClick = (product: Product) => {
     if (!product.size_chart) {
       addToast("This product does not have a sizing template mapped yet.", "warning");
@@ -170,6 +178,33 @@ export default function ShareCatalogPage() {
 
     setSelectedProduct(product);
     setRecoModalOpen(true);
+  };
+
+  const handleWhatsAppEnquiry = (product: Product) => {
+    const messageLines = [
+      "*📦 NEW PRODUCT ENQUIRY*",
+      "",
+      `*🛒 Product Details:*`,
+      `• Name: ${product.name}`,
+      `• Fabric: ${product.fabric_name || "Premium Fabric"}`,
+      `• Category: ${categoryLabel[product.wear_category]}`,
+    ];
+
+    if (product.price !== undefined && product.price !== null) {
+      messageLines.push(`• Price: ₹${product.price}`);
+    }
+
+    if (product.images && product.images.length > 0) {
+      messageLines.push("", `• Link: ${product.images[0].image_url}`);
+    }
+
+    const messageText = messageLines.join("\n");
+    const cleanPhone = (profile?.phone_number || "").replace(/\D/g, "");
+    const whatsappUrl = cleanPhone 
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageText)}`
+      : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
+
+    window.open(whatsappUrl, "_blank");
   };
 
   useEffect(() => {
@@ -195,7 +230,12 @@ export default function ShareCatalogPage() {
   }, [userId]);
 
   const filteredProducts = products.filter((p) => {
-    return filterCat === "ALL" || p.wear_category === filterCat;
+    const matchesCat = filterCat === "ALL" || p.wear_category === filterCat;
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.fabric_name && p.fabric_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCat && matchesSearch;
   });
 
   return (
@@ -316,21 +356,47 @@ export default function ShareCatalogPage() {
                 </h2>
               </div>
 
-              {/* Filters */}
-              <div className="flex flex-wrap gap-2">
-                {(["ALL", ...WEAR_CATEGORIES] as const).map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setFilterCat(cat)}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                      filterCat === cat
-                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-lg shadow-indigo-500/5"
-                        : "text-slate-500 hover:text-slate-300 border border-transparent hover:bg-white/5"
-                    }`}
-                  >
-                    {cat === "ALL" ? "All Items" : categoryLabel[cat]}
-                  </button>
-                ))}
+              {/* Search & Filters */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.01] p-4 rounded-2xl border border-white/5">
+                {/* Category filters */}
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1.5 md:pb-0">
+                  {(["ALL", ...WEAR_CATEGORIES] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setFilterCat(cat)}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                        filterCat === cat
+                          ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-lg shadow-indigo-500/5"
+                          : "text-slate-500 hover:text-slate-300 border border-transparent hover:bg-white/5"
+                      }`}
+                    >
+                      {cat === "ALL" ? "All Items" : categoryLabel[cat]}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search Box */}
+                <div className="relative w-full md:w-64">
+                  <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500">
+                    <Search size={14} />
+                  </span>
+                  <input
+                    type="text"
+                    className="w-full pl-9 pr-8 py-2 bg-slate-950/40 border border-white/10 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-all"
+                    placeholder="Search name, fabric, details..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Product Listing */}
@@ -349,7 +415,7 @@ export default function ShareCatalogPage() {
                   {filteredProducts.map((product) => (
                     <div
                       key={product.id}
-                      className="glass-card-hover rounded-3xl overflow-hidden flex flex-col h-full justify-between border border-white/5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-[#B0E4CC]/5 hover:border-[#B0E4CC]/30"
+                      className="glass-card-hover rounded-none overflow-hidden flex flex-col h-full justify-between border border-white/5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-[#B0E4CC]/5 hover:border-[#B0E4CC]/30"
                     >
                       <div className="flex flex-col h-full">
                         {/* Image Carousel */}
@@ -362,29 +428,78 @@ export default function ShareCatalogPage() {
 
                         <div className="p-4 flex-1 flex flex-col justify-between">
                           <div className="space-y-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="text-sm font-semibold text-slate-100 leading-snug flex-1">
-                                {product.name}
-                              </h3>
+                            {/* Category & Fabric badges aligned at the top */}
+                            <div className="flex flex-wrap gap-1.5 items-center">
                               <Badge
                                 label={categoryLabel[product.wear_category]}
                                 variant={categoryVariant[product.wear_category]}
                               />
+                              <div className="flex items-center gap-1 bg-[#B0E4CC]/5 border border-[#B0E4CC]/10 text-slate-400 px-2 py-0.5 rounded-lg text-[10px] font-medium">
+                                <Tag size={10} className="text-[#B0E4CC]" />
+                                <span>{product.fabric_name || "Premium Fabric"}</span>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 bg-[#B0E4CC]/5 border border-[#B0E4CC]/10 text-slate-300/95 px-2.5 py-1 rounded-lg w-fit text-[11px] font-medium transition-all hover:bg-[#B0E4CC]/10 hover:border-[#B0E4CC]/20">
-                              <Tag size={11} className="text-[#B0E4CC]" />
-                              <span>{product.fabric_name || "Premium Fabric"}</span>
-                            </div>
+                            {/* Product Name (Bold & Large) */}
+                            <h3 className="text-sm font-bold text-slate-100 leading-snug">
+                              {product.name}
+                            </h3>
+
+                            {/* Pricing Block (Large and prominent) */}
+                            {product.price !== undefined && product.price !== null && (
+                              <div className="flex items-baseline gap-2 pt-1">
+                                <span className="text-base font-extrabold text-[#B0E4CC]">
+                                  ₹{product.price}
+                                </span>
+                                {product.mrp && product.mrp > product.price && (
+                                  <>
+                                    <span className="text-xs text-slate-500 line-through">
+                                      ₹{product.mrp}
+                                    </span>
+                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-500/10">
+                                      {Math.round(((product.mrp - product.price) / product.mrp) * 100)}% OFF
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
 
-                          <div className="pt-3 border-t border-white/5 mt-4">
+                          <div className="pt-3 border-t border-white/5 mt-4 space-y-2">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedProductForDetail(product);
+                                  setDetailModalOpen(true);
+                                }}
+                                className="flex-1 inline-flex items-center justify-center px-2 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-white bg-slate-900/40 border border-white/10 hover:bg-slate-900/80 hover:border-[#B0E4CC]/30 active:scale-[0.98] transition-all cursor-pointer"
+                              >
+                                More Details
+                              </button>
+                              <button
+                                onClick={() => handleProductClick(product)}
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 hover:from-[#32715b] hover:to-[#285A48] hover:shadow-lg hover:shadow-[#B0E4CC]/10 active:scale-[0.98] transition-all cursor-pointer"
+                              >
+                                <Sparkles size={11} className="text-[#B0E4CC] animate-pulse" />
+                                <span>Find My Size</span>
+                              </button>
+                            </div>
                             <button
-                              onClick={() => handleProductClick(product)}
-                              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 hover:from-[#408a71] hover:to-[#285A48] hover:shadow-lg hover:shadow-[#B0E4CC]/10 active:scale-[0.98] transition-all cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleWhatsAppEnquiry(product);
+                              }}
+                              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-[#25D366] bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 hover:border-[#25D366]/50 active:scale-[0.98] transition-all cursor-pointer"
                             >
-                              <Sparkles size={12} className="text-[#B0E4CC] animate-pulse" />
-                              <span>Find My Size</span>
+                              <svg
+                                className="w-3.5 h-3.5 fill-current"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.706 1.458h.008c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                              </svg>
+                              <span>Order through WhatsApp</span>
                             </button>
                           </div>
                         </div>
@@ -434,7 +549,108 @@ export default function ShareCatalogPage() {
           <DemoPanel
             product={selectedProduct}
             resetSignal={selectedProduct.id}
+            shopPhoneNumber={profile?.phone_number}
           />
+        )}
+      </Modal>
+
+      {/* Public Product Details Modal */}
+      <Modal
+        isOpen={detailModalOpen}
+        onClose={() => {
+          setDetailModalOpen(false);
+          setSelectedProductForDetail(null);
+        }}
+        title="Product Details"
+        size="md"
+      >
+        {selectedProductForDetail && (
+          <div className="space-y-6 text-slate-200">
+            {selectedProductForDetail.images && selectedProductForDetail.images.length > 0 && (
+              <div className="relative h-64 w-full rounded-2xl overflow-hidden bg-slate-950/50 flex items-center justify-center p-2 border border-white/5 shadow-inner">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedProductForDetail.images[0].image_url}
+                  alt={selectedProductForDetail.name}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              </div>
+            )}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-100">{selectedProductForDetail.name}</h3>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 bg-white/[0.02] p-3 rounded-2xl border border-white/5">
+                <div>
+                  <span className="text-[10px] text-slate-500 font-semibold block uppercase tracking-wider mb-1">Category</span>
+                  <Badge
+                    label={categoryLabel[selectedProductForDetail.wear_category]}
+                    variant={categoryVariant[selectedProductForDetail.wear_category]}
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-semibold block uppercase tracking-wider mb-1">Fabric</span>
+                  <div className="flex items-center gap-1 bg-[#B0E4CC]/5 border border-[#B0E4CC]/10 text-slate-300 px-2 py-0.5 rounded-lg text-[11px] font-medium w-fit">
+                    <Tag size={10} className="text-[#B0E4CC]" />
+                    <span className="truncate max-w-[80px]">{selectedProductForDetail.fabric_name || "Premium Fabric"}</span>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-semibold block uppercase tracking-wider mb-1">Pricing</span>
+                  {selectedProductForDetail.price !== undefined && selectedProductForDetail.price !== null ? (
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-[#B0E4CC]">₹{selectedProductForDetail.price}</span>
+                      {selectedProductForDetail.mrp && selectedProductForDetail.mrp > selectedProductForDetail.price && (
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="text-[10px] text-slate-500 line-through">₹{selectedProductForDetail.mrp}</span>
+                          <span className="text-[9px] font-extrabold text-emerald-400">
+                            {Math.round(((selectedProductForDetail.mrp - selectedProductForDetail.price) / selectedProductForDetail.mrp) * 100)}% OFF
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400">N/A</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-white/5 pt-4">
+                <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider mb-2">Description</span>
+                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                  {selectedProductForDetail.description || "No description available for this product."}
+                </p>
+                <div className="border-t border-white/5 pt-4 flex flex-col gap-2.5 items-stretch">
+                  {selectedProductForDetail.size_chart && (
+                    <button
+                      onClick={() => {
+                        setDetailModalOpen(false);
+                        handleProductClick(selectedProductForDetail);
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 hover:from-[#32715b] hover:to-[#285A48] hover:shadow-lg hover:shadow-[#B0E4CC]/10 active:scale-[0.98] transition-all cursor-pointer"
+                    >
+                      <Sparkles size={12} className="text-[#B0E4CC] animate-pulse" />
+                      <span>Find My Size</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleWhatsAppEnquiry(selectedProductForDetail)}
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-[#25D366] bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 hover:border-[#25D366]/50 active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5 fill-current"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.706 1.458h.008c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                    <span>Order through WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </Modal>
 
