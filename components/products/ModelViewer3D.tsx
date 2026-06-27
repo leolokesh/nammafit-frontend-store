@@ -381,9 +381,30 @@ export function ModelViewer3D() {
       )}
 
       {!loading && !error && (
-        <div className="absolute inset-0 pointer-events-none select-none z-10">
-          <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[9px] text-slate-400 border border-white/5 tracking-wider uppercase font-semibold">
-            2D Mesh Model • Scroll to zoom
+        <div className="absolute bottom-0 inset-x-0 bg-slate-950/80 backdrop-blur-md border-t border-white/10 px-3 py-2 flex justify-around items-center text-center z-20 pointer-events-auto select-none">
+          <div className="flex flex-col">
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Weight</span>
+            <span className="text-xs text-white font-bold">63.97 kg</span>
+          </div>
+          <div className="h-6 w-px bg-white/10" />
+          <div className="flex flex-col">
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Height</span>
+            <span className="text-xs text-white font-bold">161 cm</span>
+          </div>
+          <div className="h-6 w-px bg-white/10" />
+          <div className="flex flex-col">
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Chest</span>
+            <span className="text-xs text-white font-bold">39.37 in</span>
+          </div>
+          <div className="h-6 w-px bg-white/10" />
+          <div className="flex flex-col">
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Waist</span>
+            <span className="text-xs text-white font-bold">33.46 in</span>
+          </div>
+          <div className="h-6 w-px bg-white/10" />
+          <div className="flex flex-col">
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Hips</span>
+            <span className="text-xs text-white font-bold">38.98 in</span>
           </div>
         </div>
       )}
