@@ -194,9 +194,9 @@ export default function ShareCatalogPage() {
       messageLines.push(`• Price: ₹${product.price}`);
     }
 
-    if (product.images && product.images.length > 0) {
-      messageLines.push("", `• Link: ${product.images[0].image_url}`);
-    }
+    // if (product.images && product.images.length > 0) {
+    //   messageLines.push("", `• Link: ${product.images[0].image_url}`);
+    // }
 
     const messageText = messageLines.join("\n");
     const cleanPhone = (profile?.phone_number || "").replace(/\D/g, "");

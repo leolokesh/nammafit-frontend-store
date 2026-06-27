@@ -19,6 +19,7 @@ import { publicApi } from "@/lib/api";
 import type { Product } from "@/types";
 import Select from "@/components/ui/Select";
 import { BodyScan } from "@/components/scan/BodyScan";
+import { ModelViewer3D } from "./ModelViewer3D";
 
 const API_BASE = "https://fitintelligence.onrender.com";
 
@@ -892,6 +893,15 @@ function ResultView({ result, onTryAgain, onWhatsAppOrder }: any) {
             {explanation.size_justification}
           </p>
         )}
+      </div>
+
+      {/* 3D Body Mesh Posture Visualizer */}
+      <div className="mt-8">
+        <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.28em] text-white/45 mb-4">
+          <span>3D Body Scan Posture</span>
+          <span className="h-px flex-1 bg-gradient-to-r from-[#B0E4CC]/25 to-transparent" />
+        </div>
+        <ModelViewer3D />
       </div>
 
       {/* All sizes ranked — visualised */}
