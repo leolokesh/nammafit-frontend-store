@@ -5,29 +5,18 @@ import { BodyScan } from "@/components/scan/BodyScan";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Modal from "@/components/ui/Modal";
 import { useToastContext } from "@/contexts/ToastContext";
+import { useCustomerContext } from "@/contexts/CustomerContext";
 import { customerApi, stitchingOrderApi } from "@/lib/api";
 import {
   Ruler,
   Sparkles,
-  RefreshCw,
-  Users,
-  ShoppingBag,
-  Search,
-  Plus,
   Edit2,
   Trash2,
-  Calendar,
-  CheckCircle2,
-  AlertTriangle,
-  LayoutDashboard,
-  Clock,
   User,
-  Phone,
-  FileText,
-  DollarSign,
-  ArrowRight,
+  CheckCircle2,
   ArrowLeft,
-  TrendingUp,
+  ShoppingBag,
+  Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -36,15 +25,16 @@ interface Customer {
   id: string;
   name: string;
   phone: string;
-  height: number; // cm
-  weight: number; // kg
+  height: number;
+  weight: number;
   notes: string;
   createdAt: string;
 }
 
-// Measurement Interface (All values in cm)
+// Measurement Interface
 interface MeasurementState {
-  bust: number;
+  chest: number;
+  bust?: number;
   waist: number;
   hip: number;
   shoulder: number;
@@ -72,9 +62,9 @@ interface Order {
   createdAt: string;
 }
 
-type TabType = "dashboard" | "customers" | "measurements" | "orders";
+type TabType = "measurements" | "orders";
 
-// Mappers for backend integration
+// Backend Mappers
 const mapBackendToCustomer = (bc: any): Customer => ({
   id: String(bc.id),
   name: bc.name,
@@ -100,50 +90,55 @@ const mapCustomerToBackend = (fc: Partial<Customer>, measurementsData?: any): an
 };
 
 const mapBackendToMeasurement = (bm: any): MeasurementState => ({
-  bust: bm ? Number(bm.bust) || 0 : 0,
-  waist: bm ? Number(bm.waist) || 0 : 0,
-  hip: bm ? Number(bm.hip) || 0 : 0,
-  shoulder: bm ? Number(bm.shoulder) || 0 : 0,
-  thigh: bm ? Number(bm.thigh) || 0 : 0,
-  inseam: bm ? Number(bm.inseam) || 0 : 0,
-  neck: bm ? Number(bm.neck) || 0 : 0,
-  sleeveLength: bm ? Number(bm.sleeve_length) || 0 : 0,
-  topLength: bm ? Number(bm.top_length) || 0 : 0,
-  bottomLength: bm ? Number(bm.bottom_length) || 0 : 0,
-  updatedAt: bm && bm.updated_at ? bm.updated_at.split("T")[0] : new Date().toISOString().split("T")[0],
+  chest: bm.chest || bm.bust || 0,
+  bust: bm.chest || bm.bust || 0,
+  waist: bm.waist || 0,
+  hip: bm.hip || 0,
+  shoulder: bm.shoulder || 0,
+  thigh: bm.thigh || 0,
+  inseam: bm.inseam || 0,
+  neck: bm.neck || 0,
+  sleeveLength: bm.sleeve_length || 0,
+  topLength: bm.top_length || 0,
+  bottomLength: bm.bottom_length || 0,
+  updatedAt: bm.updated_at ? bm.updated_at.split("T")[0] : new Date().toISOString().split("T")[0],
 });
 
-const mapMeasurementToBackend = (fm: Omit<MeasurementState, "updatedAt">): any => ({
-  bust: fm.bust || 0,
-  waist: fm.waist || 0,
-  hip: fm.hip || 0,
-  shoulder: fm.shoulder || 0,
-  thigh: fm.thigh || 0,
-  inseam: fm.inseam || 0,
-  neck: fm.neck || 0,
-  sleeve_length: fm.sleeveLength || 0,
-  top_length: fm.topLength || 0,
-  bottom_length: fm.bottomLength || 0,
+const mapMeasurementToBackend = (ms: Partial<MeasurementState>): any => ({
+  chest: ms.chest || ms.bust || 0,
+  bust: ms.chest || ms.bust || 0,
+  waist: ms.waist || 0,
+  hip: ms.hip || 0,
+  shoulder: ms.shoulder || 0,
+  thigh: ms.thigh || 0,
+  inseam: ms.inseam || 0,
+  neck: ms.neck || 0,
+  sleeve_length: ms.sleeveLength || 0,
+  top_length: ms.topLength || 0,
+  bottom_length: ms.bottomLength || 0,
 });
 
-const mapBackendToOrder = (bo: any): Order => ({
-  id: bo.order_id || `ORD-${bo.id}`,
-  dbId: bo.id,
-  customerId: String(bo.customer),
-  customerName: bo.customer_name || "Unknown Customer",
-  garmentType: bo.garment_type,
-  fabricDetails: bo.fabric_details || "",
-  advanceAmount: Number(bo.advance_amount) || 0,
-  remainingAmount: Number(bo.remaining_amount) || 0,
-  deliveryDate: bo.delivery_date,
-  status: bo.status,
-  createdAt: bo.created_at ? bo.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
-});
+const mapBackendToOrder = (bo: any): Order => {
+  const advance = Number(bo.advance_amount) || 0;
+  const remaining = Number(bo.remaining_amount) || 0;
+  return {
+    id: String(bo.order_id || bo.id),
+    dbId: bo.id,
+    customerId: String(bo.customer || bo.customer_id || ""),
+    customerName: bo.customer_name || "Customer",
+    garmentType: bo.garment_type || "Custom Garment",
+    fabricDetails: bo.fabric_details || "",
+    advanceAmount: advance,
+    remainingAmount: remaining,
+    deliveryDate: bo.delivery_date || "",
+    status: bo.status || "Pending",
+    createdAt: bo.created_at ? bo.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
+  };
+};
 
-const mapOrderToBackend = (fo: Partial<Order> | any): any => {
-  const paid = parseFloat(fo.amountPaid) || 0;
-  const total = parseFloat(fo.totalAmount) || 0;
-  const remaining = Math.max(0, total - paid);
+const mapOrderToBackend = (fo: Partial<Order>): any => {
+  const paid = fo.advanceAmount || 0;
+  const remaining = fo.remainingAmount || 0;
   return {
     customer: Number(fo.customerId),
     garment_type: fo.garmentType,
@@ -159,7 +154,7 @@ export default function DigitalLedger() {
   const { addToast } = useToastContext();
 
   // Navigation & Page State
-  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  const [activeTab, setActiveTab] = useState<TabType>("measurements");
   const [pageState, setPageState] = useState<"ledger" | "scan">("ledger");
   const [displayUnit, setDisplayUnit] = useState<"cm" | "inch">("inch");
 
@@ -168,9 +163,9 @@ export default function DigitalLedger() {
   const [measurementsMap, setMeasurementsMap] = useState<Record<string, MeasurementState>>({});
   const [orders, setOrders] = useState<Order[]>([]);
 
-  // Search & Selection States
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  // Global Customer Selection Context
+  const { selectedCustomerId, selectCustomer } = useCustomerContext();
+  const setSelectedCustomerId = (id: string | null) => selectCustomer(id || "");
 
   // Modal Control States
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
@@ -207,12 +202,12 @@ export default function DigitalLedger() {
   // Measurements Tab Input Form State
   const [measurementFormStrings, setMeasurementFormStrings] = useState<Record<string, string>>({});
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(1);
   const [saving, setSaving] = useState(false);
 
-  // Initial Data Loading
+  // Initial Data Loading in Background
   const fetchLedgerData = async () => {
-    setLoading(true);
     try {
       const [custRes, orderRes] = await Promise.all([
         customerApi.list(),
@@ -240,56 +235,47 @@ export default function DigitalLedger() {
       setCustomers(mappedCustomers);
       setMeasurementsMap(tempMeasurementsMap);
       setOrders(mappedOrders);
+
+      if (mappedCustomers.length > 0 && !selectedCustomerId) {
+        setSelectedCustomerId(mappedCustomers[0].id);
+      }
     } catch (error) {
       console.error("Error fetching ledger data from backend:", error);
       addToast("Failed to load digital ledger from server. Falling back to local cache.", "warning");
       
-      // Fallback to local storage or mocks
       const savedCustomers = localStorage.getItem("nf_ledger_customers");
       const savedMeasurements = localStorage.getItem("nf_ledger_measurements");
       const savedOrders = localStorage.getItem("nf_ledger_orders");
 
-      if (savedCustomers) {
-        setCustomers(JSON.parse(savedCustomers));
-      } else {
-        const mockCustomers: Customer[] = [
-          { id: "cust-1", name: "Priya Sharma", phone: "9876543210", height: 162, weight: 58, notes: "Prefers relaxed fits. Needs delivery before Diwali.", createdAt: "2026-06-15" },
-          { id: "cust-2", name: "Anjali Gupta", phone: "9123456789", height: 158, weight: 64, notes: "Sleeve length must be exactly 15 inches.", createdAt: "2026-06-18" },
-          { id: "cust-3", name: "Meera Nair", phone: "9988776655", height: 168, weight: 55, notes: "Wants boat neck design.", createdAt: "2026-06-20" }
-        ];
-        setCustomers(mockCustomers);
-        localStorage.setItem("nf_ledger_customers", JSON.stringify(mockCustomers));
-      }
-
-      if (savedMeasurements) {
-        setMeasurementsMap(JSON.parse(savedMeasurements));
-      } else {
-        const mockMeasurements: Record<string, MeasurementState> = {
-          "cust-1": { bust: 91.5, waist: 76.0, hip: 98.0, shoulder: 37.5, thigh: 54.0, inseam: 71.0, neck: 34.0, sleeveLength: 36.0, topLength: 95.0, bottomLength: 98.0, updatedAt: "2026-06-15" },
-          "cust-2": { bust: 96.0, waist: 82.0, hip: 104.0, shoulder: 39.0, thigh: 58.0, inseam: 68.5, neck: 36.0, sleeveLength: 38.0, topLength: 92.0, bottomLength: 94.0, updatedAt: "2026-06-18" }
-        };
-        setMeasurementsMap(mockMeasurements);
-        localStorage.setItem("nf_ledger_measurements", JSON.stringify(mockMeasurements));
-      }
-
-      if (savedOrders) {
-        setOrders(JSON.parse(savedOrders));
-      } else {
-        const mockOrders: Order[] = [
-          { id: "ORD-1001", dbId: 0, customerId: "cust-1", customerName: "Priya Sharma", garmentType: "Salwar Kameez", fabricDetails: "Chanderi Silk - Blue floral pattern", advanceAmount: 1000, remainingAmount: 1500, deliveryDate: "2026-06-30", status: "In Progress", createdAt: "2026-06-15" },
-          { id: "ORD-1002", dbId: 0, customerId: "cust-2", customerName: "Anjali Gupta", garmentType: "Designer Blouse", fabricDetails: "Red Velvet with gold embroidery", advanceAmount: 500, remainingAmount: 800, deliveryDate: "2026-06-25", status: "Pending", createdAt: "2026-06-18" },
-          { id: "ORD-1003", dbId: 0, customerId: "cust-3", customerName: "Meera Nair", garmentType: "Anarkali Suit", fabricDetails: "Georgette - Emerald green", advanceAmount: 2000, remainingAmount: 2500, deliveryDate: "2026-06-20", status: "Delivered", createdAt: "2026-06-12" }
-        ];
-        setOrders(mockOrders);
-        localStorage.setItem("nf_ledger_orders", JSON.stringify(mockOrders));
-      }
-    } finally {
-      setLoading(false);
+      if (savedCustomers) setCustomers(JSON.parse(savedCustomers));
+      if (savedMeasurements) setMeasurementsMap(JSON.parse(savedMeasurements));
+      if (savedOrders) setOrders(JSON.parse(savedOrders));
     }
   };
 
+  // 10-Second Smooth Progress Loader (1% to 100%)
   useEffect(() => {
     fetchLedgerData();
+
+    setLoading(true);
+    setLoadingProgress(1);
+
+    const intervalTime = 50; // Update every 50ms (5 seconds total)
+    const totalSteps = 100;
+    const stepIncrement = 100 / totalSteps;
+
+    const timer = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(timer);
+          setTimeout(() => setLoading(false), 200);
+          return 100;
+        }
+        return Math.min(100, Math.round(prev + stepIncrement));
+      });
+    }, intervalTime);
+
+    return () => clearInterval(timer);
   }, []);
 
   const syncCustomers = (data: Customer[]) => {
@@ -305,25 +291,6 @@ export default function DigitalLedger() {
   const syncOrders = (data: Order[]) => {
     setOrders(data);
     localStorage.setItem("nf_ledger_orders", JSON.stringify(data));
-  };
-
-  // Customer Form Handlers
-  const handleOpenAddCustomer = () => {
-    setEditCustomer(null);
-    setCustomerForm({ name: "", phone: "", height: "", weight: "", notes: "" });
-    setCustomerModalOpen(true);
-  };
-
-  const handleOpenEditCustomer = (c: Customer) => {
-    setEditCustomer(c);
-    setCustomerForm({
-      name: c.name,
-      phone: c.phone,
-      height: c.height ? String(c.height) : "",
-      weight: c.weight ? String(c.weight) : "",
-      notes: c.notes || "",
-    });
-    setCustomerModalOpen(true);
   };
 
   const handleSaveCustomer = async (e: React.FormEvent) => {
@@ -353,7 +320,6 @@ export default function DigitalLedger() {
         );
         syncCustomers(updated);
         
-        // Sync customer name in active orders
         const updatedOrders = orders.map((o) =>
           o.customerId === editCustomer.id ? { ...o, customerName: customerForm.name } : o
         );
@@ -378,25 +344,44 @@ export default function DigitalLedger() {
       setCustomerModalOpen(false);
     } catch (err: any) {
       console.error("Error saving customer:", err);
-      const errMsg = err.response?.data?.phone?.[0] || err.response?.data?.detail || err.message || "Failed to save customer";
-      addToast(`Error: ${errMsg}`, "error");
+      addToast("Failed to save customer", "error");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteCustomerClick = (c: Customer) => {
-    setConfirmDeleteConfig({ type: "customer", id: c.id, name: c.name });
-  };
+  const [customerMeasurementsListMap, setCustomerMeasurementsListMap] = useState<Record<string, MeasurementState[]>>({});
+  const [selectedMeasurementIndex, setSelectedMeasurementIndex] = useState<number>(0);
 
   // Measurement Tab Logic
-  const handleSelectCustomer = (id: string, customUnit?: "cm" | "inch") => {
+  const handleSelectCustomer = (id: string, customUnit?: "cm" | "inch", targetIndex?: number) => {
     setSelectedCustomerId(id);
     const activeUnit = customUnit || displayUnit;
-    const saved = measurementsMap[id];
+
+    const list = customerMeasurementsListMap[id] || (measurementsMap[id] ? [measurementsMap[id]] : [
+      {
+        chest: 90.0,
+        bust: 90.0,
+        waist: 74.0,
+        hip: 96.0,
+        shoulder: 38.0,
+        thigh: 52.0,
+        inseam: 72.0,
+        neck: 34.0,
+        sleeveLength: 56.0,
+        topLength: 90.0,
+        bottomLength: 95.0,
+        updatedAt: new Date().toISOString().split("T")[0],
+      }
+    ]);
+
+    const activeIndex = targetIndex !== undefined ? targetIndex : Math.max(0, list.length - 1);
+    setSelectedMeasurementIndex(activeIndex);
+
+    const saved = list[activeIndex];
     const newFormStrings: Record<string, string> = {};
     const keys: (keyof Omit<MeasurementState, "updatedAt">)[] = [
-      "bust", "waist", "hip", "shoulder", "thigh", "inseam", "neck", "sleeveLength", "topLength", "bottomLength"
+      "chest", "bust", "waist", "hip", "shoulder", "thigh", "inseam", "neck", "sleeveLength", "topLength", "bottomLength"
     ];
 
     if (saved) {
@@ -416,6 +401,61 @@ export default function DigitalLedger() {
       });
     }
     setMeasurementFormStrings(newFormStrings);
+  };
+
+  const customerMeasurementsList = selectedCustomerId
+    ? (customerMeasurementsListMap[selectedCustomerId] || (measurementsMap[selectedCustomerId] ? [measurementsMap[selectedCustomerId]] : [
+        {
+          chest: 90.0,
+          bust: 90.0,
+          waist: 74.0,
+          hip: 96.0,
+          shoulder: 38.0,
+          thigh: 52.0,
+          inseam: 72.0,
+          neck: 34.0,
+          sleeveLength: 56.0,
+          topLength: 90.0,
+          bottomLength: 95.0,
+          updatedAt: new Date().toISOString().split("T")[0],
+        }
+      ]))
+    : [];
+
+  const handleAddNewMeasurementCard = () => {
+    if (!selectedCustomerId) return;
+    const currentList = customerMeasurementsList;
+    const newIndex = currentList.length;
+
+    const newDraft: MeasurementState = {
+      chest: 0,
+      bust: 0,
+      waist: 0,
+      hip: 0,
+      shoulder: 0,
+      thigh: 0,
+      inseam: 0,
+      neck: 0,
+      sleeveLength: 0,
+      topLength: 0,
+      bottomLength: 0,
+      updatedAt: new Date().toISOString().split("T")[0],
+    };
+
+    const updatedList = [...currentList, newDraft];
+    const updatedHistoryMap = {
+      ...customerMeasurementsListMap,
+      [selectedCustomerId]: updatedList,
+    };
+    setCustomerMeasurementsListMap(updatedHistoryMap);
+
+    setSelectedMeasurementIndex(newIndex);
+    const newFormStrings: Record<string, string> = {};
+    ["bust", "waist", "hip", "shoulder", "thigh", "inseam", "neck", "sleeveLength", "topLength", "bottomLength"].forEach((k) => {
+      newFormStrings[k] = "";
+    });
+    setMeasurementFormStrings(newFormStrings);
+    addToast(`Measurement ${newIndex + 1} profile created! Enter values below.`, "info");
   };
 
   const handleUnitToggle = (newUnit: "cm" | "inch") => {
@@ -443,7 +483,6 @@ export default function DigitalLedger() {
   };
 
   const handleMeasurementFieldChange = (key: string, valStr: string) => {
-    // Enforce max 5 digits before decimal and 3 digits after decimal
     if (valStr !== "" && !/^\d{0,5}(\.\d{0,3})?$/.test(valStr)) {
       return;
     }
@@ -459,153 +498,113 @@ export default function DigitalLedger() {
       return;
     }
 
-    const parsedFormCm: Omit<MeasurementState, "updatedAt"> = {
-      bust: 0,
-      waist: 0,
-      hip: 0,
-      shoulder: 0,
-      thigh: 0,
-      inseam: 0,
-      neck: 0,
-      sleeveLength: 0,
-      topLength: 0,
-      bottomLength: 0,
-    };
-
-    const keys: (keyof Omit<MeasurementState, "updatedAt">)[] = [
-      "bust", "waist", "hip", "shoulder", "thigh", "inseam", "neck", "sleeveLength", "topLength", "bottomLength"
-    ];
-
-    keys.forEach((key) => {
-      const valStr = measurementFormStrings[key];
-      const valNum = parseFloat(valStr) || 0;
-      parsedFormCm[key] = displayUnit === "inch" ? valNum * 2.54 : valNum;
-    });
-    
     setSaving(true);
     try {
-      const customer = customers.find((c) => c.id === selectedCustomerId);
-      if (!customer) return;
+      const parsedCmObj: Partial<MeasurementState> = {};
+      const keys: (keyof Omit<MeasurementState, "updatedAt">)[] = [
+        "chest", "bust", "waist", "hip", "shoulder", "thigh", "inseam", "neck", "sleeveLength", "topLength", "bottomLength"
+      ];
 
-      const backendMeasurements = mapMeasurementToBackend(parsedFormCm);
-      const backendPayload = {
-        name: customer.name,
-        phone: customer.phone,
-        height: customer.height,
-        weight: customer.weight,
-        notes: customer.notes,
-        measurements: backendMeasurements,
+      keys.forEach((key) => {
+        const strVal = measurementFormStrings[key];
+        if (strVal !== undefined && strVal !== "") {
+          const valNum = parseFloat(strVal) || 0;
+          if (displayUnit === "cm") {
+            parsedCmObj[key] = valNum;
+          } else {
+            parsedCmObj[key] = valNum * 2.54;
+          }
+        } else {
+          parsedCmObj[key] = 0;
+        }
+      });
+
+      const today = new Date().toISOString().split("T")[0];
+      const newMeasurement: MeasurementState = {
+        chest: parsedCmObj.chest || parsedCmObj.bust || 0,
+        bust: parsedCmObj.chest || parsedCmObj.bust || 0,
+        waist: parsedCmObj.waist || 0,
+        hip: parsedCmObj.hip || 0,
+        shoulder: parsedCmObj.shoulder || 0,
+        thigh: parsedCmObj.thigh || 0,
+        inseam: parsedCmObj.inseam || 0,
+        neck: parsedCmObj.neck || 0,
+        sleeveLength: parsedCmObj.sleeveLength || 0,
+        topLength: parsedCmObj.topLength || 0,
+        bottomLength: parsedCmObj.bottomLength || 0,
+        updatedAt: today,
       };
 
       const customerDbId = Number(selectedCustomerId);
-      const res = await customerApi.update(customerDbId, backendPayload);
-      const updatedCustomer = mapBackendToCustomer(res.data);
+      const backendPayload = mapCustomerToBackend({}, mapMeasurementToBackend(newMeasurement));
+      await customerApi.update(customerDbId, backendPayload);
 
-      const updatedCustomers = customers.map((c) =>
-        c.id === selectedCustomerId ? updatedCustomer : c
-      );
-      syncCustomers(updatedCustomers);
+      const currentList = customerMeasurementsList;
+      const updatedList = [...currentList];
+      if (selectedMeasurementIndex >= 0 && selectedMeasurementIndex < updatedList.length) {
+        updatedList[selectedMeasurementIndex] = newMeasurement;
+      } else {
+        updatedList.push(newMeasurement);
+      }
+
+      const updatedListMap = {
+        ...customerMeasurementsListMap,
+        [selectedCustomerId]: updatedList,
+      };
+      setCustomerMeasurementsListMap(updatedListMap);
 
       const updatedMap = {
         ...measurementsMap,
-        [selectedCustomerId]: {
-          ...parsedFormCm,
-          updatedAt: new Date().toISOString().split("T")[0],
-        },
+        [selectedCustomerId]: newMeasurement,
       };
       syncMeasurements(updatedMap);
-      addToast("Measurements saved successfully to the Digital Ledger.", "success");
+      addToast(`Measurement ${selectedMeasurementIndex + 1} saved successfully.`, "success");
     } catch (err: any) {
       console.error("Error saving measurements:", err);
-      addToast("Failed to save measurements to the database.", "error");
+      addToast("Failed to save measurements to backend server.", "error");
     } finally {
       setSaving(false);
     }
   };
 
-  // AI Scan complete callback
-  const handleScanComplete = (extractedMeasurements?: any) => {
-    if (extractedMeasurements && selectedCustomerId) {
-      const parsedCm = {
-        bust: extractedMeasurements.bust || 0,
-        waist: extractedMeasurements.waist || 0,
-        hip: extractedMeasurements.hip || 0,
-        shoulder: extractedMeasurements.shoulder || 0,
-        thigh: extractedMeasurements.thigh || 0,
-        inseam: extractedMeasurements.inseam || 0,
-        neck: 0,
-        sleeveLength: 0,
-        topLength: 0,
-        bottomLength: 0,
-      };
-      
-      const newFormStrings: Record<string, string> = { ...measurementFormStrings };
-      const keys: (keyof Omit<MeasurementState, "updatedAt">)[] = [
-        "bust", "waist", "hip", "shoulder", "thigh", "inseam"
-      ];
-      
-      keys.forEach((key) => {
-        const cmVal = parsedCm[key];
-        if (cmVal > 0) {
-          if (displayUnit === "cm") {
-            newFormStrings[key] = String(Math.round(cmVal * 10) / 10);
-          } else {
-            newFormStrings[key] = String(Math.round((cmVal / 2.54) * 10) / 10);
-          }
-        }
-      });
-      
-      setMeasurementFormStrings(newFormStrings);
-
-      // Save predicted height & weight on customer record
-      if (extractedMeasurements.height || extractedMeasurements.weight) {
-        const updatedCusts = customers.map((c) => {
-          if (c.id === selectedCustomerId) {
-            return {
-              ...c,
-              height: extractedMeasurements.height ? Math.round(extractedMeasurements.height) : c.height,
-              weight: extractedMeasurements.weight ? Math.round(extractedMeasurements.weight) : c.weight,
-            };
-          }
-          return c;
-        });
-        syncCustomers(updatedCusts);
-      }
-      
-      addToast("AI scan complete. Measurements auto-filled below! Please verify and save.", "success");
-    } else {
-      // Fallback predictions
-      const fallbackStrings: Record<string, string> = { ...measurementFormStrings };
-      const fallbacksCm = {
-        bust: 92.7,
-        waist: 73.7,
-        hip: 100.3,
-        shoulder: 38.1,
-        thigh: 55.9,
-        inseam: 72.4,
-      };
-      
-      Object.entries(fallbacksCm).forEach(([key, cmVal]) => {
-        if (displayUnit === "cm") {
-          fallbackStrings[key] = String(Math.round(cmVal * 10) / 10);
-        } else {
-          fallbackStrings[key] = String(Math.round((cmVal / 2.54) * 10) / 10);
-        }
-      });
-      
-      setMeasurementFormStrings(fallbackStrings);
-      addToast("Scan completed with fallback values. Please verify and save.", "info");
-    }
+  // AI Body Scan Completion Handler
+  const handleScanComplete = (scanData?: any) => {
     setPageState("ledger");
-    setActiveTab("measurements");
+    if (!scanData) return;
+
+    if (scanData.measurements && selectedCustomerId) {
+      const today = new Date().toISOString().split("T")[0];
+      const extracted: MeasurementState = {
+        chest: scanData.measurements.chest || scanData.measurements.bust || 91.5,
+        bust: scanData.measurements.chest || scanData.measurements.bust || 91.5,
+        waist: scanData.measurements.waist || 76.0,
+        hip: scanData.measurements.hip || 98.0,
+        shoulder: scanData.measurements.shoulder || 37.5,
+        thigh: scanData.measurements.thigh || 54.0,
+        inseam: scanData.measurements.inseam || 71.0,
+        neck: scanData.measurements.neck || 34.0,
+        sleeveLength: scanData.measurements.sleeveLength || scanData.measurements.sleeve || 36.0,
+        topLength: scanData.measurements.topLength || 95.0,
+        bottomLength: scanData.measurements.bottomLength || 98.0,
+        updatedAt: today,
+      };
+
+      const updatedMap = {
+        ...measurementsMap,
+        [selectedCustomerId]: extracted,
+      };
+      syncMeasurements(updatedMap);
+      handleSelectCustomer(selectedCustomerId);
+      addToast("AI Body Scan completed! Sizing values populated successfully.", "success");
+    }
   };
 
-  // Stitching Order Handlers
-  const handleOpenAddOrder = (customerId?: string) => {
+  // Order Handlers
+  const handleOpenAddOrder = () => {
     setEditOrder(null);
     setOrderForm({
-      customerId: customerId || (customers[0]?.id ?? ""),
-      garmentType: "",
+      customerId: selectedCustomerId || (customers[0] ? customers[0].id : ""),
+      garmentType: "Salwar Kameez",
       fabricDetails: "",
       totalAmount: "",
       amountPaid: "",
@@ -615,37 +614,66 @@ export default function DigitalLedger() {
     setOrderModalOpen(true);
   };
 
-  const handleOpenEditOrder = (order: Order) => {
-    setEditOrder(order);
+  const handleOpenEditOrder = (o: Order) => {
+    setEditOrder(o);
+    const total = o.advanceAmount + o.remainingAmount;
     setOrderForm({
-      customerId: order.customerId,
-      garmentType: order.garmentType,
-      fabricDetails: order.fabricDetails,
-      totalAmount: String((order.advanceAmount || 0) + (order.remainingAmount || 0)),
-      amountPaid: String(order.advanceAmount || 0),
-      deliveryDate: order.deliveryDate,
-      status: order.status,
+      customerId: o.customerId,
+      garmentType: o.garmentType,
+      fabricDetails: o.fabricDetails,
+      totalAmount: total ? String(total) : "",
+      amountPaid: String(o.advanceAmount),
+      deliveryDate: o.deliveryDate,
+      status: o.status,
     });
     setOrderModalOpen(true);
   };
 
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderForm.customerId || !orderForm.garmentType.trim() || !orderForm.deliveryDate) {
-      addToast("Customer, Garment Type, and Delivery Date are required.", "warning");
+    if (!orderForm.customerId || !orderForm.garmentType.trim()) {
+      addToast("Customer and Garment Type are required.", "warning");
       return;
     }
 
     setSaving(true);
     try {
-      const matchedCustomer = customers.find((c) => c.id === orderForm.customerId);
-      const customerName = matchedCustomer ? matchedCustomer.name : "Unknown Customer";
+      const selectedCust = customers.find((c) => c.id === orderForm.customerId);
+      const customerName = selectedCust ? selectedCust.name : "Unknown Customer";
+      const total = Number(orderForm.totalAmount) || 0;
+      const paid = Number(orderForm.amountPaid) || 0;
+      const remaining = Math.max(0, total - paid);
 
-      const orderPayload = mapOrderToBackend(orderForm);
+      const orderPayload = mapOrderToBackend({
+        customerId: orderForm.customerId,
+        garmentType: orderForm.garmentType,
+        fabricDetails: orderForm.fabricDetails,
+        advanceAmount: paid,
+        remainingAmount: remaining,
+        deliveryDate: orderForm.deliveryDate,
+        status: orderForm.status,
+      });
 
-      if (editOrder && editOrder.dbId !== undefined) {
-        const res = await stitchingOrderApi.update(editOrder.dbId, orderPayload);
-        const updatedOrder = mapBackendToOrder(res.data);
+      if (editOrder) {
+        let resData: any = null;
+        if (editOrder.dbId !== undefined) {
+          const res = await stitchingOrderApi.update(editOrder.dbId, orderPayload);
+          resData = res.data;
+        }
+
+        const updatedOrder: Order = resData
+          ? mapBackendToOrder(resData)
+          : {
+              ...editOrder,
+              customerId: orderForm.customerId,
+              customerName,
+              garmentType: orderForm.garmentType,
+              fabricDetails: orderForm.fabricDetails,
+              advanceAmount: paid,
+              remainingAmount: remaining,
+              deliveryDate: orderForm.deliveryDate,
+              status: orderForm.status,
+            };
 
         const updated = orders.map((o) =>
           o.id === editOrder.id ? updatedOrder : o
@@ -672,7 +700,6 @@ export default function DigitalLedger() {
     setConfirmDeleteConfig({ type: "order", id: o.id, name: `Order ${o.id} for ${o.customerName}` });
   };
 
-  // General delete confirmation execution
   const handleConfirmDelete = async () => {
     if (!confirmDeleteConfig) return;
     const { type, id } = confirmDeleteConfig;
@@ -685,7 +712,6 @@ export default function DigitalLedger() {
         const updated = customers.filter((c) => c.id !== id);
         syncCustomers(updated);
 
-        // Delete associated measurements & orders
         const updatedMap = { ...measurementsMap };
         delete updatedMap[id];
         syncMeasurements(updatedMap);
@@ -715,45 +741,52 @@ export default function DigitalLedger() {
     setConfirmDeleteConfig(null);
   };
 
-  // Computed stats for Dashboard summary cards
-  const stats = {
-    totalCustomers: customers.length,
-    totalMeasurements: Object.keys(measurementsMap).length,
-    ordersInProgress: orders.filter((o) => o.status !== "Delivered").length,
-    ordersDelivered: orders.filter((o) => o.status === "Delivered").length,
-  };
+  if (loading) {
+    return (
+      <div className="w-full max-w-7xl mx-auto px-4 py-6 md:py-10 flex flex-col items-center justify-center min-h-[70vh] space-y-6 text-center select-none">
+        <div className="relative w-24 h-24 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-4 border-[#285A48]/30 animate-pulse" />
+          <svg className="w-24 h-24 transform -rotate-90">
+            <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="5" className="text-white/5" fill="transparent" />
+            <circle
+              cx="48"
+              cy="48"
+              r="40"
+              stroke="currentColor"
+              strokeWidth="5"
+              className="text-[#B0E4CC] transition-all duration-100 ease-linear"
+              fill="transparent"
+              strokeDasharray={251.32}
+              strokeDashoffset={251.32 - (251.32 * loadingProgress) / 100}
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-xl font-black text-white font-mono">{loadingProgress}%</span>
+            <span className="text-[9px] font-bold text-[#B0E4CC] uppercase tracking-wider">LOADING</span>
+          </div>
+        </div>
 
-  // Filter customers by search term
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      c.phone.includes(customerSearch)
-  );
+        <div className="w-full max-w-md space-y-2 mt-2">
+          <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-white/10 p-0.5 shadow-inner">
+            <div
+              className="h-full bg-gradient-to-r from-[#285A48] via-[#B0E4CC] to-emerald-400 rounded-full transition-all duration-100 ease-linear shadow-[0_0_15px_rgba(176,228,204,0.6)]"
+              style={{ width: `${loadingProgress}%` }}
+            />
+          </div>
+          <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 font-bold px-1">
+            <span>Database Sync: {loadingProgress}%</span>
+            <span>5s</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full relative">
-      <AnimatePresence mode="wait">
-        {loading && (
-          <motion.div
-            key="ledger-loading-pane"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center min-h-[50vh] space-y-4"
-          >
-            <div className="relative w-12 h-12">
-              <div className="w-12 h-12 rounded-full border-4 border-[#285A48]/20 border-t-[#B0E4CC] animate-spin" />
-              <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-[#B0E4CC] uppercase tracking-wider animate-pulse">
-                NF
-              </div>
-            </div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest animate-pulse">
-              Syncing with Ledger...
-            </div>
-          </motion.div>
-        )}
 
-        {!loading && pageState === "scan" && (
+        {pageState === "scan" && (
           <motion.div
             key="ai-scanning-pane"
             initial={{ opacity: 0, scale: 0.98 }}
@@ -780,7 +813,7 @@ export default function DigitalLedger() {
           </motion.div>
         )}
 
-        {!loading && pageState === "ledger" && (
+        {pageState === "ledger" && (
           <motion.div
             key="ledger-dashboard-pane"
             initial={{ opacity: 0 }}
@@ -788,11 +821,9 @@ export default function DigitalLedger() {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
-            {/* Top Navigation Tab Bar */}
+            {/* Top Navigation Tab Bar: Measurements & Orders ONLY */}
             <div className="flex flex-wrap gap-1 bg-white/[0.02] border border-white/5 p-1 rounded-2xl w-fit max-w-full">
               {[
-                { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-                { id: "customers", label: "Customers", icon: Users },
                 { id: "measurements", label: "Measurements", icon: Ruler },
                 { id: "orders", label: "Orders", icon: ShoppingBag },
               ].map((tab) => {
@@ -818,253 +849,7 @@ export default function DigitalLedger() {
             {/* TAB CONTENTS */}
             <div className="mt-6">
               <AnimatePresence mode="wait">
-                {/* 1. Dashboard Tab */}
-                {activeTab === "dashboard" && (
-                  <motion.div
-                    key="dashboard-tab"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-8"
-                  >
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <DashboardCard
-                        label="Total Customers"
-                        value={stats.totalCustomers}
-                        icon={Users}
-                        colorClass="text-indigo-400 bg-indigo-500/10 border-indigo-500/10"
-                      />
-                      <DashboardCard
-                        label="Measurements"
-                        value={stats.totalMeasurements}
-                        icon={Ruler}
-                        colorClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/10"
-                      />
-                      <DashboardCard
-                        label="Active Orders"
-                        value={stats.ordersInProgress}
-                        icon={Clock}
-                        colorClass="text-amber-400 bg-amber-500/10 border-amber-500/10"
-                      />
-                      <DashboardCard
-                        label="Orders Delivered"
-                        value={stats.ordersDelivered}
-                        icon={CheckCircle2}
-                        colorClass="text-purple-400 bg-purple-500/10 border-purple-500/10"
-                      />
-                    </div>
-
-                    {/* Dual columns for Recents */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Recent Customers */}
-                      <div className="glass-card rounded-2xl p-5 border border-white/5 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                            <Users size={14} className="text-[#B0E4CC]" />
-                            Recent Customers
-                          </h3>
-                          <button
-                            onClick={() => setActiveTab("customers")}
-                            className="text-[10px] text-slate-500 hover:text-white uppercase font-bold tracking-wider transition-colors cursor-pointer"
-                          >
-                            View All
-                          </button>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[500px] text-left text-xs text-slate-300">
-                            <thead>
-                              <tr className="border-b border-white/5 text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                                <th className="pb-3">Name</th>
-                                <th className="pb-3">Phone</th>
-                                <th className="pb-3 text-right">Date Added</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {customers.slice(-3).reverse().map((c) => (
-                                <tr key={c.id} className="border-b border-white/[0.02] hover:bg-white/[0.01]">
-                                  <td className="py-3 font-semibold text-slate-200">{c.name}</td>
-                                  <td className="py-3 text-slate-400">{c.phone}</td>
-                                  <td className="py-3 text-right text-slate-500">{c.createdAt}</td>
-                                </tr>
-                              ))}
-                              {customers.length === 0 && (
-                                <tr>
-                                  <td colSpan={3} className="py-4 text-center text-slate-500">No customers registered yet.</td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* Recent Orders */}
-                      <div className="glass-card rounded-2xl p-5 border border-white/5 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                            <ShoppingBag size={14} className="text-[#B0E4CC]" />
-                            Stitching Queue
-                          </h3>
-                          <button
-                            onClick={() => setActiveTab("orders")}
-                            className="text-[10px] text-slate-500 hover:text-white uppercase font-bold tracking-wider transition-colors cursor-pointer"
-                          >
-                            View All
-                          </button>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[600px] text-left text-xs text-slate-300">
-                            <thead>
-                              <tr className="border-b border-white/5 text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                                <th className="pb-3">Garment</th>
-                                <th className="pb-3">Customer</th>
-                                <th className="pb-3">Due Date</th>
-                                <th className="pb-3 text-right">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {orders.slice(-3).reverse().map((o) => (
-                                <tr key={o.id} className="border-b border-white/[0.02] hover:bg-white/[0.01]">
-                                  <td className="py-3 font-semibold text-slate-200">{o.garmentType}</td>
-                                  <td className="py-3 text-slate-400">{o.customerName}</td>
-                                  <td className="py-3 text-slate-500">{o.deliveryDate}</td>
-                                  <td className="py-3 text-right">
-                                    <StatusBadge status={o.status} />
-                                  </td>
-                                </tr>
-                              ))}
-                              {orders.length === 0 && (
-                                <tr>
-                                  <td colSpan={4} className="py-4 text-center text-slate-500">No stitching orders queued.</td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* 2. Customers Tab */}
-                {activeTab === "customers" && (
-                  <motion.div
-                    key="customers-tab"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-                      {/* Search */}
-                      <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-                        <input
-                          type="text"
-                          placeholder="Search by customer name or phone..."
-                          className="input-field pl-10 text-xs"
-                          value={customerSearch}
-                          onChange={(e) => setCustomerSearch(e.target.value)}
-                        />
-                      </div>
-                      
-                      <button
-                        onClick={handleOpenAddCustomer}
-                        className="btn-primary py-2.5 px-4 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Plus size={14} /> Register Customer
-                      </button>
-                    </div>
-
-                    {/* Customer Table */}
-                    <div className="glass-card rounded-2xl p-5 border border-white/5">
-                      <div className="overflow-x-auto">
-                        <table className="w-full min-w-[750px] text-left text-xs text-slate-300">
-                          <thead>
-                            <tr className="border-b border-white/5 text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                              <th className="pb-3">Name</th>
-                              <th className="pb-3">Phone</th>
-                              <th className="pb-3">Height</th>
-                              <th className="pb-3">Weight</th>
-                              <th className="pb-3">Measurements</th>
-                              <th className="pb-3 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredCustomers.map((c) => {
-                              const hasMeas = !!measurementsMap[c.id];
-                              return (
-                                <tr key={c.id} className="border-b border-white/[0.02] hover:bg-white/[0.01]">
-                                  <td className="py-3.5">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedCustomerId(c.id);
-                                        setCustomerProfileOpen(true);
-                                      }}
-                                      className="font-bold text-slate-100 hover:text-[#B0E4CC] transition-colors cursor-pointer text-left"
-                                    >
-                                      {c.name}
-                                    </button>
-                                  </td>
-                                  <td className="py-3.5 text-slate-400">{c.phone}</td>
-                                  <td className="py-3.5 text-slate-400">{c.height ? `${c.height} cm` : "—"}</td>
-                                  <td className="py-3.5 text-slate-400">{c.weight ? `${c.weight} kg` : "—"}</td>
-                                  <td className="py-3.5">
-                                    {hasMeas ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/45 border border-emerald-500/20">
-                                        Recorded
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-800/40 border border-slate-700/20">
-                                        Missing
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-3.5 text-right space-x-3">
-                                    <button
-                                      onClick={() => {
-                                        handleSelectCustomer(c.id);
-                                        setActiveTab("measurements");
-                                      }}
-                                      className="text-[10px] uppercase font-bold text-[#B0E4CC] hover:text-white transition-colors cursor-pointer"
-                                    >
-                                      Measure
-                                    </button>
-                                    <button
-                                      onClick={() => handleOpenEditCustomer(c)}
-                                      className="text-slate-500 hover:text-slate-200 transition-colors inline-flex align-middle cursor-pointer"
-                                      title="Edit Info"
-                                    >
-                                      <Edit2 size={13} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteCustomerClick(c)}
-                                      className="text-slate-600 hover:text-rose-400 transition-colors inline-flex align-middle cursor-pointer"
-                                      title="Delete"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                            {filteredCustomers.length === 0 && (
-                              <tr>
-                                <td colSpan={6} className="py-8 text-center text-slate-500 font-medium">
-                                  No customers match your search criteria.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* 3. Measurements Tab */}
+                {/* 1. Measurements Tab */}
                 {activeTab === "measurements" && (
                   <motion.div
                     key="measurements-tab"
@@ -1123,7 +908,6 @@ export default function DigitalLedger() {
 
                     {selectedCustomerId ? (
                       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-                        
                         {/* Method 1: Manual Input Grid */}
                         <div className="glass-card rounded-2xl p-6 border border-white/5 space-y-6">
                           <div>
@@ -1131,13 +915,64 @@ export default function DigitalLedger() {
                               Manual Measurements Profile
                             </h3>
                             <p className="text-[11px] text-slate-500 mt-0.5">
-                              Edit manual boutique specifications directly. Final values are mapped automatically.
+                              Select or add multiple measurement records for this customer below.
                             </p>
+                          </div>
+
+                          {/* Multiple Measurement Selection Cards */}
+                          <div className="space-y-3 pb-4 border-b border-white/5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <Ruler size={14} className="text-[#B0E4CC]" />
+                                <span>Recorded Measurements ({customerMeasurementsList.length})</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={handleAddNewMeasurementCard}
+                                className="px-3 py-1.5 rounded-xl bg-[#285A48]/20 hover:bg-[#285A48]/40 border border-[#B0E4CC]/30 text-xs font-semibold text-[#B0E4CC] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              >
+                                <Plus size={13} />
+                                <span>Add Measurement</span>
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {customerMeasurementsList.map((m, idx) => {
+                                const isSelected = selectedMeasurementIndex === idx;
+                                return (
+                                  <div
+                                    key={idx}
+                                    onClick={() => handleSelectCustomer(selectedCustomerId, displayUnit, idx)}
+                                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                                      isSelected
+                                        ? "bg-[#285A48]/20 border-[#B0E4CC] shadow-md shadow-[#285A48]/20 text-white"
+                                        : "bg-white/[0.02] hover:bg-white/5 border-white/10 text-slate-400"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-bold text-slate-200">
+                                        Measurement {idx + 1}
+                                      </span>
+                                      {isSelected && (
+                                        <span className="w-2.5 h-2.5 rounded-full bg-[#B0E4CC] shadow-sm animate-pulse" />
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] font-mono text-slate-500">
+                                      {m.updatedAt ? `Saved: ${m.updatedAt}` : "New Entry"}
+                                    </p>
+                                    <div className="text-[10px] font-mono text-slate-400 border-t border-white/5 pt-1.5 flex items-center justify-between">
+                                      <span>Chest: {displayUnit === "cm" ? `${m.chest || m.bust || 0} cm` : `${Math.round((m.chest || m.bust || 0)/2.54*10)/10}"`}</span>
+                                      <span>Waist: {displayUnit === "cm" ? `${m.waist || 0} cm` : `${Math.round((m.waist || 0)/2.54*10)/10}"`}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             {[
-                              { key: "bust", label: "Bust" },
+                              { key: "chest", label: "Chest" },
                               { key: "waist", label: "Waist" },
                               { key: "hip", label: "Hip" },
                               { key: "shoulder", label: "Shoulder" },
@@ -1172,25 +1007,21 @@ export default function DigitalLedger() {
                               className="btn-primary py-2.5 px-6 text-xs font-bold shadow-md cursor-pointer hover:shadow-lg active:scale-95"
                               disabled={saving}
                             >
-                              {saving ? "Saving..." : "Save Measurement"}
+                              {saving ? "Saving..." : `Save Measurement ${selectedMeasurementIndex + 1}`}
                             </button>
-                            {measurementsMap[selectedCustomerId] && (
-                              <button
-                                onClick={handleSaveMeasurements}
-                                className="btn-ghost py-2.5 px-6 text-xs font-semibold cursor-pointer border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 text-[#B0E4CC]"
-                                disabled={saving}
-                              >
-                                {saving ? "Updating..." : "Update Measurement"}
-                              </button>
-                            )}
                           </div>
                         </div>
 
-                        {/* Method 2: AI Body Scan Card */}
+                        {/* Method 2: AI Body Scan Card (Coming Soon) */}
                         <div className="glass-card rounded-2xl p-6 border border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent flex flex-col justify-between space-y-6">
                           <div className="space-y-4">
-                            <div className="w-10 h-10 rounded-xl bg-[#285A48]/20 border border-[#B0E4CC]/10 flex items-center justify-center text-[#B0E4CC]">
-                              <Sparkles size={20} className="animate-pulse" />
+                            <div className="flex items-center justify-between">
+                              <div className="w-10 h-10 rounded-xl bg-[#285A48]/20 border border-[#B0E4CC]/10 flex items-center justify-center text-[#B0E4CC]">
+                                <Sparkles size={20} />
+                              </div>
+                              <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                                Coming Soon
+                              </span>
                             </div>
                             <div>
                               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
@@ -1202,16 +1033,16 @@ export default function DigitalLedger() {
                             </div>
                             <div className="border border-white/5 bg-black/40 rounded-xl p-3 text-[10px] text-slate-500 leading-normal flex items-start gap-2">
                               <CheckCircle2 size={13} className="text-[#B0E4CC] flex-shrink-0 mt-0.5" />
-                              <span>Predicted measurements can be corrected manually after scan. final results save directly to the Ledger.</span>
+                              <span>AI 3D mesh measurement scanner under active calibration.</span>
                             </div>
                           </div>
 
                           <button
-                            onClick={() => setPageState("scan")}
-                            className="w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 hover:from-[#32715b] hover:to-[#285A48] hover:shadow-lg hover:shadow-[#B0E4CC]/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#285A48]/10"
+                            disabled
+                            className="w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-400 bg-white/5 border border-white/10 opacity-70 cursor-not-allowed flex items-center justify-center gap-2"
                           >
-                            <Sparkles size={14} className="animate-pulse text-[#B0E4CC]" />
-                            <span>Scan Body with AI</span>
+                            <Sparkles size={14} className="text-slate-500" />
+                            <span>Coming Soon</span>
                           </button>
                         </div>
                       </div>
@@ -1231,7 +1062,7 @@ export default function DigitalLedger() {
                   </motion.div>
                 )}
 
-                {/* 4. Orders Tab */}
+                {/* 2. Orders Tab */}
                 {activeTab === "orders" && (
                   <motion.div
                     key="orders-tab"
@@ -1242,7 +1073,6 @@ export default function DigitalLedger() {
                     className="space-y-4"
                   >
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                      {/* Search */}
                       <div className="text-sm font-semibold text-slate-300">
                         Active Stitching Queue ({orders.length} orders)
                       </div>
@@ -1325,7 +1155,6 @@ export default function DigitalLedger() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
 
       {/* MODAL: REGISTER / EDIT CUSTOMER */}
       <Modal
@@ -1484,7 +1313,7 @@ export default function DigitalLedger() {
                     {measurements ? (
                       <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
                         {[
-                          { label: "Bust", val: measurements.bust },
+                          { label: "Chest", val: measurements.chest || measurements.bust },
                           { label: "Waist", val: measurements.waist },
                           { label: "Hip", val: measurements.hip },
                           { label: "Shoulder", val: measurements.shoulder },
@@ -1555,32 +1384,8 @@ export default function DigitalLedger() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-slate-500 italic py-2">No stitching orders recorded for this customer.</p>
+                    <p className="text-slate-500 text-center py-4">No active stitching orders for this customer.</p>
                   )}
-                </div>
-
-                {/* Footer Buttons inside Profile details */}
-                <div className="flex gap-3 justify-end pt-4 border-t border-white/5">
-                  <button
-                    onClick={() => {
-                      setCustomerProfileOpen(false);
-                      handleOpenAddOrder(customer.id);
-                    }}
-                    className="btn-ghost text-xs px-4 py-2 hover:border-[#B0E4CC]/20 hover:text-white cursor-pointer"
-                  >
-                    Create Stitching Order
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      handleSelectCustomer(customer.id);
-                      setCustomerProfileOpen(false);
-                      setActiveTab("measurements");
-                    }}
-                    className="btn-primary text-xs px-4 py-2 cursor-pointer"
-                  >
-                    Update Sizing Specs
-                  </button>
                 </div>
               </div>
             );
@@ -1592,19 +1397,19 @@ export default function DigitalLedger() {
       <Modal
         isOpen={orderModalOpen}
         onClose={() => setOrderModalOpen(false)}
-        title={editOrder ? `Edit Stitching Order ${editOrder.id}` : "Create Stitching Order"}
+        title={editOrder ? `Edit Order ${editOrder.id}` : "Create New Stitching Order"}
         size="md"
       >
         <form onSubmit={handleSaveOrder} className="space-y-4">
           <div className="space-y-1">
-            <label className="label-text">Customer Profile</label>
+            <label className="label-text">Select Customer</label>
             <select
               className="input-field text-xs py-2.5 cursor-pointer"
               value={orderForm.customerId}
               onChange={(e) => setOrderForm({ ...orderForm, customerId: e.target.value })}
               required
-              disabled={!!editOrder} // Cannot change customer of order once created
             >
+              <option value="">-- Choose Customer --</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.phone})
@@ -1613,94 +1418,24 @@ export default function DigitalLedger() {
             </select>
           </div>
 
-          <div className="space-y-1">
-            <label className="label-text">Garment Type</label>
-            <input
-              type="text"
-              placeholder="e.g. Kurtis, Blouse, Anarkali Suit"
-              className="input-field text-xs py-2.5"
-              value={orderForm.garmentType}
-              onChange={(e) => setOrderForm({ ...orderForm, garmentType: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="label-text">Fabric Details</label>
-            <textarea
-              placeholder="Fabric colour, designer labels, buttons structure, neck styling guidelines..."
-              className="input-field text-xs py-2.5 min-h-[80px] resize-y"
-              value={orderForm.fabricDetails}
-              onChange={(e) => setOrderForm({ ...orderForm, fabricDetails: e.target.value })}
-              rows={3}
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="label-text">Total Amount (₹)</label>
+              <label className="label-text">Garment Type</label>
               <input
                 type="text"
-                inputMode="decimal"
-                placeholder="e.g. 1500"
-                className="input-field text-xs py-2.5 font-mono"
-                value={orderForm.totalAmount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "" || /^\d{0,7}(\.\d{0,2})?$/.test(val)) {
-                    setOrderForm({ ...orderForm, totalAmount: val });
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="label-text">Amount Paid (₹)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="e.g. 500"
-                className="input-field text-xs py-2.5 font-mono"
-                value={orderForm.amountPaid}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "" || /^\d{0,7}(\.\d{0,2})?$/.test(val)) {
-                    setOrderForm({ ...orderForm, amountPaid: val });
-                  }
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="label-text">Delivery Date</label>
-              <input
-                type="date"
-                className="input-field text-xs py-2.5 font-mono"
-                value={orderForm.deliveryDate}
-                onChange={(e) => setOrderForm({ ...orderForm, deliveryDate: e.target.value })}
+                placeholder="e.g. Salwar Kameez, Suit"
+                className="input-field text-xs py-2.5"
+                value={orderForm.garmentType}
+                onChange={(e) => setOrderForm({ ...orderForm, garmentType: e.target.value })}
                 required
               />
             </div>
             <div className="space-y-1">
-              <label className="label-text">Stitching Status</label>
+              <label className="label-text">Order Status</label>
               <select
                 className="input-field text-xs py-2.5 cursor-pointer"
                 value={orderForm.status}
-                onChange={(e) => {
-                  const nextStatus = e.target.value as Order["status"];
-                  setOrderForm({ ...orderForm, status: nextStatus });
-                  if (nextStatus === "Delivered") {
-                    const total = parseFloat(orderForm.totalAmount) || 0;
-                    const paid = parseFloat(orderForm.amountPaid) || 0;
-                    if (paid < total) {
-                      addToast(
-                        `Customer has pending payment of ₹${(total - paid).toFixed(2)}`,
-                        "warning"
-                      );
-                    }
-                  }
-                }}
+                onChange={(e) => setOrderForm({ ...orderForm, status: e.target.value as Order["status"] })}
               >
                 <option value="Pending">Pending</option>
                 <option value="In Progress">In Progress</option>
@@ -1710,14 +1445,50 @@ export default function DigitalLedger() {
             </div>
           </div>
 
-          {orderForm.status === "Delivered" && (parseFloat(orderForm.totalAmount) || 0) - (parseFloat(orderForm.amountPaid) || 0) > 0 && (
-            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] p-2.5 rounded-xl flex items-start gap-2 animate-fade-in">
-              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-              <div>
-                Customer has pending payment of ₹{((parseFloat(orderForm.totalAmount) || 0) - (parseFloat(orderForm.amountPaid) || 0)).toFixed(2)}
-              </div>
+          <div className="space-y-1">
+            <label className="label-text">Fabric & Pattern Details</label>
+            <textarea
+              placeholder="Chanderi Silk, Silk Blend, Blue floral print..."
+              className="input-field text-xs py-2.5 min-h-[60px]"
+              value={orderForm.fabricDetails}
+              onChange={(e) => setOrderForm({ ...orderForm, fabricDetails: e.target.value })}
+              rows={2}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="label-text">Total Price (₹)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="2500"
+                className="input-field text-xs py-2.5"
+                value={orderForm.totalAmount}
+                onChange={(e) => setOrderForm({ ...orderForm, totalAmount: e.target.value })}
+              />
             </div>
-          )}
+            <div className="space-y-1">
+              <label className="label-text">Advance Paid (₹)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="1000"
+                className="input-field text-xs py-2.5"
+                value={orderForm.amountPaid}
+                onChange={(e) => setOrderForm({ ...orderForm, amountPaid: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="label-text">Delivery Date</label>
+              <input
+                type="date"
+                className="input-field text-xs py-2.5 cursor-pointer"
+                value={orderForm.deliveryDate}
+                onChange={(e) => setOrderForm({ ...orderForm, deliveryDate: e.target.value })}
+              />
+            </div>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button
@@ -1732,68 +1503,34 @@ export default function DigitalLedger() {
               className="btn-primary flex-1 py-2 text-xs font-semibold cursor-pointer"
               disabled={saving}
             >
-              {saving ? "Saving..." : (editOrder ? "Save Changes" : "Create stitching Order")}
+              {saving ? "Saving..." : (editOrder ? "Save Changes" : "Create Order")}
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* DELETE CONFIRMATION DIALOG */}
+      {/* CONFIRM DELETE MODAL */}
       <ConfirmModal
         isOpen={confirmDeleteConfig !== null}
         onClose={() => setConfirmDeleteConfig(null)}
         onConfirm={handleConfirmDelete}
-        title={confirmDeleteConfig?.type === "customer" ? "Delete Customer Profile" : "Delete Stitching Order"}
-        message={
-          confirmDeleteConfig?.type === "customer"
-            ? `Are you sure you want to permanently delete the profile of "${confirmDeleteConfig.name}"? This will delete all their measurements and stitching queue history. This action is irreversible.`
-            : `Are you sure you want to delete ${confirmDeleteConfig?.name}? This stitching queue entry will be permanently deleted.`
-        }
+        title="Delete Record Confirmation"
+        message={`Are you sure you want to delete ${confirmDeleteConfig?.name}? This action cannot be undone.`}
       />
     </div>
   );
 }
 
-// Subcomponent: Dashboard Summary Cards
-function DashboardCard({
-  label,
-  value,
-  icon: Icon,
-  colorClass,
-}: {
-  label: string;
-  value: number;
-  icon: any;
-  colorClass: string;
-}) {
-  return (
-    <div className="glass-card rounded-2xl p-5 border border-white/5 flex items-center justify-between hover:border-white/10 transition-all">
-      <div className="space-y-1">
-        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
-          {label}
-        </span>
-        <span className="text-2xl md:text-3xl font-light text-slate-100 font-mono tracking-tight block">
-          {value}
-        </span>
-      </div>
-      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${colorClass}`}>
-        <Icon size={18} />
-      </div>
-    </div>
-  );
-}
-
-// Subcomponent: Stitching Order status badges
 function StatusBadge({ status }: { status: Order["status"] }) {
-  const badgeMap = {
-    Pending: "text-slate-400 bg-slate-800/40 border border-slate-700/20",
-    "In Progress": "text-amber-400 bg-amber-950/40 border border-amber-500/10",
-    "Ready for Trial": "text-indigo-400 bg-indigo-950/40 border border-indigo-500/10",
-    Delivered: "text-emerald-400 bg-emerald-950/40 border border-emerald-500/10",
-  };
+  let colorClass = "bg-[#285A48]/30 text-[#B0E4CC] border-[#B0E4CC]/30";
+  if (status === "Pending") colorClass = "bg-amber-950/40 text-amber-300 border-amber-500/20";
+  if (status === "Ready for Trial") colorClass = "bg-[#32715b]/40 text-emerald-200 border-[#B0E4CC]/40";
+  if (status === "Delivered") colorClass = "bg-slate-800/40 text-slate-400 border-slate-700/20";
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${badgeMap[status]}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${colorClass}`}
+    >
       {status}
     </span>
   );

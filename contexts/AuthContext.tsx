@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("refresh_token", data.refresh);
       localStorage.setItem("nf_user", JSON.stringify(data.user));
       setUser(data.user);
-      router.push("/dashboard");
+      router.push("/ai-dashboard");
     },
     [router]
   );

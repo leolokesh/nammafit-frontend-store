@@ -8,6 +8,7 @@ import TopBar from "@/components/layout/TopBar";
 import Footer from "@/components/layout/Footer";
 import { Loader2 } from "lucide-react";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
+import { CustomerProvider } from "@/contexts/CustomerContext";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar();
@@ -68,7 +69,9 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      <CustomerProvider>
+        <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      </CustomerProvider>
     </SidebarProvider>
   );
 }

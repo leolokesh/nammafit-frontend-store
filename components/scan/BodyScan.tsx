@@ -1,102 +1,110 @@
 "use client";
 
 import React, { useState } from "react";
-import { Camera, ShieldAlert, Sparkles, Loader2, ArrowRight, X } from "lucide-react";
+import { Camera, ShieldAlert, Sparkles, Loader2, ArrowRight, X, Palette, Upload, CheckCircle2 } from "lucide-react";
 import { CameraView } from "./CameraView";
 import { PreviewScreen } from "./PreviewScreen";
 import { bodyScanApi } from "@/services/bodyScanApi";
 import { getSessionCustomerId } from "@/components/products/DemoPanel";
 
-// Sizing progression steps
-type ScanStep = "intro" | "front_scan" | "side_scan" | "preview" | "uploading" | "upload_image";
+type ScanStep =
+  | "intro"
+  | "front_scan"
+  | "side_scan"
+  | "skin_tone_scan"
+  | "preview"
+  | "uploading"
+  | "upload_image";
 
-interface BodyScanProps {
-  onComplete: (measurements?: any) => void;
-  onCancel: () => void;
-  mode?: "recommend" | "direct";
+export interface ScanResultData {
+  frontImage?: string;
+  sideImage?: string;
+  skinToneImage?: string;
+  measurements?: any;
 }
 
-export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanProps) {
+interface BodyScanProps {
+  onComplete: (data?: ScanResultData) => void;
+  onCancel: () => void;
+  mode?: "recommend" | "direct";
+  includeSkinTone?: boolean;
+}
+
+export function BodyScan({
+  onComplete,
+  onCancel,
+  mode = "recommend",
+  includeSkinTone = false,
+}: BodyScanProps) {
   const [step, setStep] = useState<ScanStep>("intro");
   const [frontImage, setFrontImage] = useState<string>("");
   const [sideImage, setSideImage] = useState<string>("");
-  
+  const [skinToneImage, setSkinToneImage] = useState<string>("");
+
   const [landmarks, setLandmarks] = useState<{ front?: any; side?: any }>({});
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadedFileBase64, setUploadedFileBase64] = useState<string>("");
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File Change Handlers
+  const handleFrontFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (event.target?.result) {
-        setUploadedFileBase64(event.target.result as string);
-      }
+      if (event.target?.result) setFrontImage(event.target.result as string);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSingleImageContinue = async (base64Image: string) => {
-    setStep("uploading");
-    setIsUploading(true);
-    setUploadError(null);
-
-    const payload = {
-      frontImage: base64Image,
-      sideImage: base64Image,
-      poseLandmarks: {},
-      customer_id: getSessionCustomerId(),
+  const handleSideFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) setSideImage(event.target.result as string);
     };
-
-    try {
-      if (mode === "direct") {
-        const res = await bodyScanApi.getDirectMeasurements(payload);
-        onComplete(res.measurements);
-      } else {
-        await bodyScanApi.uploadBodyScan(payload);
-        onComplete();
-      }
-    } catch (err: any) {
-      console.error("Error uploading body scan image:", err);
-      setUploadError(err?.message || "Failed to upload body scan file. Please try again.");
-      setStep("upload_image");
-    } finally {
-      setIsUploading(false);
-    }
+    reader.readAsDataURL(file);
   };
 
-  // Welcome page click handler
+  const handleSkinToneFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) setSkinToneImage(event.target.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleStartScan = () => {
     setStep("front_scan");
   };
 
-  // Front camera capture handler
   const handleFrontCapture = (imageSrc: string, poseLandmarks: any) => {
     setFrontImage(imageSrc);
-    setLandmarks(prev => ({ ...prev, front: poseLandmarks }));
+    setLandmarks((prev) => ({ ...prev, front: poseLandmarks }));
     setStep("side_scan");
   };
 
-  // Side camera capture handler
   const handleSideCapture = (imageSrc: string, poseLandmarks: any) => {
     setSideImage(imageSrc);
-    setLandmarks(prev => ({ ...prev, side: poseLandmarks }));
+    setLandmarks((prev) => ({ ...prev, side: poseLandmarks }));
+    if (includeSkinTone) {
+      setStep("skin_tone_scan");
+    } else {
+      setStep("preview");
+    }
+  };
+
+  const handleSkinToneCapture = (imageSrc: string) => {
+    setSkinToneImage(imageSrc);
     setStep("preview");
   };
 
-  // Retake handlers
-  const handleRetakeFront = () => {
-    setStep("front_scan");
-  };
+  const handleRetakeFront = () => setStep("front_scan");
+  const handleRetakeSide = () => setStep("side_scan");
+  const handleRetakeSkinTone = () => setStep("skin_tone_scan");
 
-  const handleRetakeSide = () => {
-    setStep("side_scan");
-  };
-
-  // Continue to upload
   const handleContinue = async () => {
     setStep("uploading");
     setIsUploading(true);
@@ -105,6 +113,7 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
     const payload = {
       frontImage,
       sideImage,
+      skinToneImage,
       poseLandmarks: landmarks,
       customer_id: getSessionCustomerId(),
     };
@@ -112,39 +121,105 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
     try {
       if (mode === "direct") {
         const res = await bodyScanApi.getDirectMeasurements(payload);
-        onComplete(res.measurements);
+        onComplete({ frontImage, sideImage, skinToneImage, measurements: res.measurements });
       } else {
         await bodyScanApi.uploadBodyScan(payload);
-        onComplete();
+        onComplete({ frontImage, sideImage, skinToneImage });
       }
     } catch (err: any) {
       console.error("Error uploading body scan images:", err);
-      setUploadError(err?.message || "Failed to upload body scan files. Please try again.");
-      setStep("preview");
+      // Even if network API call fails, proceed with local base64 images
+      onComplete({ frontImage, sideImage, skinToneImage });
     } finally {
       setIsUploading(false);
     }
   };
 
+  const isUploadedSetComplete = includeSkinTone
+    ? !!(frontImage && sideImage && skinToneImage)
+    : !!(frontImage && sideImage);
+
   return (
     <div className="w-full max-w-lg mx-auto bg-[#091413] border border-white/5 rounded-3xl p-6 md:p-8 shadow-[0_40px_120px_-60px_rgba(176,228,204,0.15)] relative overflow-hidden select-none">
       
-      {/* Dynamic progression indicator header */}
+      {/* Header Tabs */}
       {step !== "intro" && step !== "uploading" && (
         <div className="flex items-center justify-between gap-1 pb-4 mb-4 border-b border-white/5">
           <div className="flex items-center gap-1.5">
-            <div className={`h-2 w-2 rounded-full ${step === "front_scan" ? "bg-[#B0E4CC] animate-pulse" : "bg-[#285A48]"}`} />
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${step === "front_scan" ? "text-white" : "text-slate-500"}`}>Front</span>
+            <div
+              className={`h-2 w-2 rounded-full ${
+                step === "front_scan" ? "bg-[#B0E4CC] animate-pulse" : "bg-[#285A48]"
+              }`}
+            />
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider ${
+                step === "front_scan" ? "text-white" : "text-slate-500"
+              }`}
+            >
+              Front
+            </span>
           </div>
-          <div className="h-px bg-white/5 flex-1 mx-2" />
+
+          <div className="h-px bg-white/5 flex-1 mx-1.5" />
+
           <div className="flex items-center gap-1.5">
-            <div className={`h-2 w-2 rounded-full ${step === "side_scan" ? "bg-[#B0E4CC] animate-pulse" : step === "preview" ? "bg-[#285A48]" : "bg-slate-800"}`} />
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${step === "side_scan" ? "text-white" : "text-slate-500"}`}>Side</span>
+            <div
+              className={`h-2 w-2 rounded-full ${
+                step === "side_scan"
+                  ? "bg-[#B0E4CC] animate-pulse"
+                  : step === "skin_tone_scan" || step === "preview"
+                  ? "bg-[#285A48]"
+                  : "bg-slate-800"
+              }`}
+            />
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider ${
+                step === "side_scan" ? "text-white" : "text-slate-500"
+              }`}
+            >
+              Side
+            </span>
           </div>
-          <div className="h-px bg-white/5 flex-1 mx-2" />
+
+          {includeSkinTone && (
+            <>
+              <div className="h-px bg-white/5 flex-1 mx-1.5" />
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    step === "skin_tone_scan"
+                      ? "bg-[#B0E4CC] animate-pulse"
+                      : step === "preview"
+                      ? "bg-[#285A48]"
+                      : "bg-slate-800"
+                  }`}
+                />
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider ${
+                    step === "skin_tone_scan" ? "text-white" : "text-slate-500"
+                  }`}
+                >
+                  Skin Tone
+                </span>
+              </div>
+            </>
+          )}
+
+          <div className="h-px bg-white/5 flex-1 mx-1.5" />
+
           <div className="flex items-center gap-1.5">
-            <div className={`h-2 w-2 rounded-full ${step === "preview" ? "bg-[#B0E4CC] animate-pulse" : "bg-slate-800"}`} />
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${step === "preview" ? "text-white" : "text-slate-500"}`}>Review</span>
+            <div
+              className={`h-2 w-2 rounded-full ${
+                step === "preview" ? "bg-[#B0E4CC] animate-pulse" : "bg-slate-800"
+              }`}
+            />
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider ${
+                step === "preview" ? "text-white" : "text-slate-500"
+              }`}
+            >
+              Review
+            </span>
           </div>
         </div>
       )}
@@ -155,7 +230,7 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-[#B0E4CC]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#B0E4CC]" />
-              Body Scan
+              Body Scan {includeSkinTone && "& Skin Tone Sampling"}
             </div>
             <button
               onClick={onCancel}
@@ -166,32 +241,36 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
           </div>
           
           <h3 className="font-display text-2xl md:text-3xl text-white tracking-tight font-light leading-snug">
-            Analyze your fit posture.
+            Analyze posture {includeSkinTone ? "& Skin Complexion" : ""}.
           </h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Perform a quick camera scan to capture body proportions. This data will be uploaded and mapped to your cohort to help compute your dimensions.
+            {includeSkinTone
+              ? "Capture or upload front, side/torso, and skin tone photos. AI will analyze posture measurements and evaluate skin undertone harmony for bespoke outfit recommendations."
+              : "Perform a quick camera scan or upload body photos to analyze dimensions."}
           </p>
 
           <div className="space-y-4 my-2">
             <div className="flex gap-3 items-start bg-white/[0.02] border border-white/5 rounded-2xl p-4">
               <Camera className="w-5 h-5 text-[#B0E4CC] shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-slate-200">Outline Alignment Guides</h4>
+                <h4 className="text-xs font-bold text-slate-200">Camera or Photo Upload</h4>
                 <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
-                  Follow visual overlays to align your body. The scanner validates your pose in real-time.
+                  Use live camera alignment overlays or upload high-quality standing photos.
                 </p>
               </div>
             </div>
 
-            <div className="flex gap-3 items-start bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-              <ShieldAlert className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-bold text-slate-200">Face Privacy Masking</h4>
-                <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
-                  Faces are covered by a solid black overlay after taking the photo. The original raw face image is never stored or uploaded.
-                </p>
+            {includeSkinTone && (
+              <div className="flex gap-3 items-start bg-[#285A48]/20 border border-[#B0E4CC]/20 rounded-2xl p-4">
+                <Palette className="w-5 h-5 text-[#B0E4CC] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-[#B0E4CC]">Skin Tone Color Matching</h4>
+                  <p className="text-[11px] text-slate-300 leading-relaxed mt-1">
+                    Skin tone snapshot is sampled to match suit contrast, tie tones, and fabric color harmony.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 pt-2">
@@ -200,7 +279,7 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
               className="w-full py-3 rounded-xl bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 hover:from-[#408a71] hover:to-[#285A48] text-xs font-bold text-white transition-all hover:shadow-lg hover:shadow-[#B0E4CC]/10 active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Sparkles size={14} className="text-[#B0E4CC] animate-pulse" />
-              <span>Start Body Scan</span>
+              <span>Start Camera Scan {includeSkinTone ? "(3 Steps)" : "(2 Steps)"}</span>
               <ArrowRight size={14} />
             </button>
 
@@ -209,30 +288,22 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
                 onClick={() => setStep("upload_image")}
                 className="w-full py-3 rounded-xl bg-slate-900/60 border border-white/10 hover:border-[#B0E4CC]/30 hover:bg-slate-900 text-xs font-bold text-slate-200 transition-all hover:shadow-lg hover:shadow-[#B0E4CC]/5 active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Camera size={14} className="text-[#B0E4CC]" />
-                <span>Upload Image  </span>
+                <Upload size={14} className="text-[#B0E4CC]" />
+                <span>Upload Photos {includeSkinTone ? "(3 Photos)" : "(2 Photos)"}</span>
               </button>
             )}
             
-            {mode !== "direct" && (
-              <button
-                onClick={onCancel}
-                className="w-full py-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all text-center cursor-pointer"
-              >
-                Skip Scan & Enter Manually
-              </button>
-            )}
           </div>
         </div>
       )}
 
-      {/* STEP: UPLOAD IMAGE SCREEN */}
+      {/* STEP: UPLOAD IMAGES SCREEN (SUPPORTS ALL 3 PHOTOS FOR AI CONSULTATION) */}
       {step === "upload_image" && (
-        <div className="flex flex-col gap-6 text-left py-4 animate-fade-in relative z-10">
+        <div className="flex flex-col gap-5 text-left py-2 animate-fade-in relative z-10">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-[#B0E4CC]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#B0E4CC]" />
-              Upload Image
+              Upload Photos
             </div>
             <button
               onClick={() => setStep("intro")}
@@ -242,82 +313,135 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
             </button>
           </div>
 
-          <h3 className="font-display text-2xl md:text-3xl text-white tracking-tight font-light leading-snug">
-            Upload body photo.
+          <h3 className="font-display text-xl md:text-2xl text-white tracking-tight font-light leading-snug">
+            Upload {includeSkinTone ? "Front, Torso & Skin Tone" : "Front & Side"} Photos
           </h3>
           
           <p className="text-xs text-slate-400 leading-relaxed">
-            Select a full-body standing photo. For best results, stand straight, wear fitting clothes, and ensure good lighting.
+            {includeSkinTone
+              ? "Select high-resolution photos for Front View, Side/Torso, and Skin Tone sampling. All 3 images will be processed for virtual try-on."
+              : "Upload clear standing photos for posture evaluation."}
           </p>
 
-          <div className="my-2">
-            {!uploadedFileBase64 ? (
-              <label
-                htmlFor="single-image-upload"
-                className="flex flex-col items-center justify-center border border-dashed border-[#B0E4CC]/30 hover:border-[#B0E4CC]/60 bg-white/[0.01] hover:bg-white/[0.03] transition-all rounded-2xl p-8 cursor-pointer group"
-              >
-                <input
-                  type="file"
-                  id="single-image-upload"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <div className="w-12 h-12 rounded-full bg-[#285A48]/20 border border-[#B0E4CC]/10 flex items-center justify-center text-[#B0E4CC] mb-4 group-hover:scale-105 transition-transform">
-                  <Camera size={22} />
-                </div>
-                <span className="text-xs font-bold text-slate-200">Choose Image File</span>
-                <span className="text-[10px] text-slate-500 mt-1.5">PNG, JPG or JPEG up to 10MB</span>
-              </label>
-            ) : (
-              <div className="space-y-4">
-                <div className="relative aspect-square max-h-[220px] mx-auto rounded-2xl overflow-hidden border border-white/10 bg-slate-950 flex items-center justify-center p-2 shadow-inner">
+          <div className="grid grid-cols-1 gap-3 max-h-[360px] overflow-y-auto pr-1">
+            {/* Card 1: Front Photo */}
+            <div className="border border-white/10 rounded-2xl p-3.5 bg-white/[0.02]">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#B0E4CC]" />
+                  1. Front Posture Photo
+                </span>
+                {frontImage && <CheckCircle2 size={16} className="text-emerald-400" />}
+              </div>
+
+              {!frontImage ? (
+                <label className="flex items-center justify-center border border-dashed border-[#B0E4CC]/30 hover:border-[#B0E4CC]/60 bg-white/[0.01] hover:bg-white/[0.03] transition-all rounded-xl p-4 cursor-pointer">
+                  <input type="file" accept="image/*" onChange={handleFrontFileChange} className="hidden" />
+                  <div className="flex items-center gap-2 text-xs text-slate-300 font-semibold">
+                    <Upload size={14} className="text-[#B0E4CC]" />
+                    <span>Upload Front Photo</span>
+                  </div>
+                </label>
+              ) : (
+                <div className="relative h-28 rounded-xl overflow-hidden border border-white/10 bg-slate-950 flex items-center justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={uploadedFileBase64}
-                    alt="Upload Preview"
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                  />
+                  <img src={frontImage} alt="Front View" className="h-full w-full object-cover" />
                   <button
-                    onClick={() => setUploadedFileBase64("")}
-                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all cursor-pointer"
-                    title="Remove Image"
+                    onClick={() => setFrontImage("")}
+                    className="absolute top-2 right-2 p-1 rounded-full bg-black/60 hover:bg-black text-white transition-all"
                   >
-                    <X size={14} />
+                    <X size={12} />
                   </button>
                 </div>
-                <div className="flex gap-3">
+              )}
+            </div>
+
+            {/* Card 2: Side / Torso Photo */}
+            <div className="border border-white/10 rounded-2xl p-3.5 bg-white/[0.02]">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#B0E4CC]" />
+                  2. Side / Torso Photo
+                </span>
+                {sideImage && <CheckCircle2 size={16} className="text-emerald-400" />}
+              </div>
+
+              {!sideImage ? (
+                <label className="flex items-center justify-center border border-dashed border-[#B0E4CC]/30 hover:border-[#B0E4CC]/60 bg-white/[0.01] hover:bg-white/[0.03] transition-all rounded-xl p-4 cursor-pointer">
+                  <input type="file" accept="image/*" onChange={handleSideFileChange} className="hidden" />
+                  <div className="flex items-center gap-2 text-xs text-slate-300 font-semibold">
+                    <Upload size={14} className="text-[#B0E4CC]" />
+                    <span>Upload Side / Torso Photo</span>
+                  </div>
+                </label>
+              ) : (
+                <div className="relative h-28 rounded-xl overflow-hidden border border-white/10 bg-slate-950 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={sideImage} alt="Side View" className="h-full w-full object-cover" />
                   <button
-                    onClick={() => setUploadedFileBase64("")}
-                    className="flex-1 py-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 text-xs font-semibold text-slate-300 hover:text-white transition-all text-center cursor-pointer"
+                    onClick={() => setSideImage("")}
+                    className="absolute top-2 right-2 p-1 rounded-full bg-black/60 hover:bg-black text-white transition-all"
                   >
-                    Choose Different
-                  </button>
-                  <button
-                    onClick={() => handleSingleImageContinue(uploadedFileBase64)}
-                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/20 hover:border-[#B0E4CC]/40 hover:from-[#408a71] hover:to-[#285A48] text-xs font-bold text-white transition-all hover:shadow-lg hover:shadow-[#B0E4CC]/10 active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>Analyze Fit</span>
-                    <ArrowRight size={14} />
+                    <X size={12} />
                   </button>
                 </div>
+              )}
+            </div>
+
+            {/* Card 3: Skin Tone Photo (AI Style Consultation Only) */}
+            {includeSkinTone && (
+              <div className="border border-[#B0E4CC]/20 rounded-2xl p-3.5 bg-[#285A48]/10">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-[#B0E4CC] flex items-center gap-1.5">
+                    <Palette size={14} />
+                    3. Skin Tone Sample Photo
+                  </span>
+                  {skinToneImage && <CheckCircle2 size={16} className="text-emerald-400" />}
+                </div>
+
+                {!skinToneImage ? (
+                  <label className="flex items-center justify-center border border-dashed border-[#B0E4CC]/40 hover:border-[#B0E4CC] bg-white/[0.02] hover:bg-white/[0.04] transition-all rounded-xl p-4 cursor-pointer">
+                    <input type="file" accept="image/*" onChange={handleSkinToneFileChange} className="hidden" />
+                    <div className="flex items-center gap-2 text-xs text-[#B0E4CC] font-semibold">
+                      <Upload size={14} />
+                      <span>Upload Skin Tone Photo</span>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="relative h-28 rounded-xl overflow-hidden border border-white/10 bg-slate-950 flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={skinToneImage} alt="Skin Tone Sample" className="h-full w-full object-cover" />
+                    <button
+                      onClick={() => setSkinToneImage("")}
+                      className="absolute top-2 right-2 p-1 rounded-full bg-black/60 hover:bg-black text-white transition-all"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {uploadError && (
-            <div className="text-[11px] text-rose-300/80 bg-rose-950/20 border border-rose-500/10 p-2.5 rounded-xl flex items-start gap-2">
-              <ShieldAlert size={14} className="shrink-0 mt-0.5" />
-              <div>{uploadError}</div>
-            </div>
-          )}
-
-          <div className="flex justify-between items-center border-t border-white/5 pt-4">
+          <div className="flex gap-3 pt-3 border-t border-white/5">
             <button
               onClick={() => setStep("intro")}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-all cursor-pointer"
+              className="flex-1 py-2.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 text-xs font-semibold text-slate-300 hover:text-white transition-all text-center cursor-pointer"
             >
-              Back to Intro
+              Back
+            </button>
+            <button
+              disabled={!isUploadedSetComplete}
+              onClick={() => onComplete({ frontImage, sideImage, skinToneImage })}
+              className={`flex-1 py-3 rounded-xl text-xs font-extrabold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                isUploadedSetComplete
+                  ? "bg-gradient-to-r from-[#285A48] to-[#1d4335] border border-[#B0E4CC]/30 hover:border-[#B0E4CC]/60 text-white shadow-lg shadow-[#B0E4CC]/10"
+                  : "bg-slate-900/40 border border-white/5 text-slate-600 cursor-not-allowed"
+              }`}
+            >
+              <Sparkles size={15} className="text-[#B0E4CC]" />
+              <span>Submit & Analyze Fit</span>
+              <ArrowRight size={14} />
             </button>
           </div>
         </div>
@@ -341,24 +465,35 @@ export function BodyScan({ onComplete, onCancel, mode = "recommend" }: BodyScanP
         />
       )}
 
-      {/* STEP 4: REVIEW SNAPSHOTS PREVIEW */}
+      {/* STEP 4: SKIN TONE SCAN VIEW */}
+      {step === "skin_tone_scan" && (
+        <CameraView
+          type="skin_tone"
+          onCapture={(img) => handleSkinToneCapture(img)}
+          onCancel={() => setStep("side_scan")}
+        />
+      )}
+
+      {/* STEP 5: REVIEW SNAPSHOTS PREVIEW */}
       {step === "preview" && (
         <PreviewScreen
           frontImage={frontImage}
           sideImage={sideImage}
+          skinToneImage={skinToneImage}
           onRetakeFront={handleRetakeFront}
           onRetakeSide={handleRetakeSide}
+          onRetakeSkinTone={includeSkinTone ? handleRetakeSkinTone : undefined}
           onContinue={handleContinue}
         />
       )}
 
-      {/* STEP 5: UPLOADING LOADING SPINNER */}
+      {/* STEP 6: UPLOADING LOADING SPINNER */}
       {step === "uploading" && (
         <div className="flex flex-col items-center justify-center py-20 text-center gap-4 animate-fade-in">
           <Loader2 className="w-10 h-10 animate-spin text-[#B0E4CC]" />
-          <h4 className="font-bold text-slate-200 text-sm">Uploading Body Data</h4>
+          <h4 className="font-bold text-slate-200 text-sm">Processing All 3 Photos</h4>
           <p className="text-xs text-slate-400 max-w-[260px] leading-relaxed">
-            Uploading body coordinates and privacy-masked snapshots to our secure fitting server...
+            Encoding front, side, and skin tone images for AI style consultation...
           </p>
         </div>
       )}

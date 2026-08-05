@@ -15,10 +15,13 @@ export function useToast() {
 
   const addToast = useCallback((message: string, type: ToastType = "info") => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    // Defer state update to next tick so addToast can be safely invoked anytime without triggering React render conflicts
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+      setToasts((prev) => [...prev, { id, message, type }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    }, 0);
   }, []);
 
   const removeToast = useCallback((id: string) => {

@@ -21,16 +21,11 @@ export interface LoginResponse extends AuthTokens {
 }
 
 // ─── Fabric ───────────────────────────────────────────────────────────────────
-export type StretchType = "Non-Stretch" | "Low" | "Medium" | "High";
-export type StructureType = "Structured" | "Flowy" | "Knit" | "Rigid";
-export type WeightCategory = "Light" | "Medium" | "Heavy";
-
 export interface Fabric {
   id: number;
   name: string;
-  stretch_type: StretchType;
-  structure_type: StructureType;
-  weight_category: WeightCategory;
+  color?: string;
+  image_url?: string;
 }
 
 export type WearCategory = "TOPWEAR" | "BOTTOMWEAR" | "FULL_BODY";

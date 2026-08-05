@@ -264,7 +264,7 @@ export default function TopBar() {
         </form>
       </Drawer>
 
-      {/* ── Change Password Modal ──────────────────────────────────────────────── */}
+      {/* -- Change Password Modal ------------------------------------------------ */}
       <Modal
         isOpen={pwModalOpen}
         onClose={() => setPwModalOpen(false)}

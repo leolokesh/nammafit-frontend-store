@@ -17,7 +17,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 
-// ─── Lightbox ─────────────────────────────────────────────────────────────────
+// --- Lightbox -----------------------------------------------------------------
 function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   // Close on ESC
   useEffect(() => {
@@ -49,7 +49,7 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   );
 }
 
-// ─── Single Image Uploader ────────────────────────────────────────────────────
+// --- Single Image Uploader ----------------------------------------------------
 export interface ImageUploaderProps {
   /** Cloudinary URL of the currently uploaded image (empty string = no image) */
   value: string;
@@ -158,7 +158,7 @@ export function ImageUploader({
     onRemove();
   };
 
-  // ── Render: image already uploaded ────────────────────────────────────────
+  // -- Render: image already uploaded ----------------------------------------
   if (state === "done" && preview) {
     return (
       <>
@@ -209,7 +209,7 @@ export function ImageUploader({
     );
   }
 
-  // ── Render: uploading ────────────────────────────────────────────────────
+  // -- Render: uploading ----------------------------------------------------
   if (state === "uploading" && preview) {
     return (
       <div className="relative rounded-xl overflow-hidden border border-indigo-500/40 bg-slate-900 aspect-square flex flex-col items-center justify-center gap-2 p-3">
@@ -237,7 +237,7 @@ export function ImageUploader({
     );
   }
 
-  // ── Render: error ────────────────────────────────────────────────────────
+  // -- Render: error --------------------------------------------------------
   if (state === "error") {
     return (
       <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 aspect-square flex flex-col items-center justify-center gap-2 p-3 text-center">
@@ -254,7 +254,7 @@ export function ImageUploader({
     );
   }
 
-  // ── Render: idle / dropzone ───────────────────────────────────────────────
+  // -- Render: idle / dropzone -----------------------------------------------
   return (
     <button
       type="button"
@@ -298,7 +298,7 @@ export function ImageUploader({
   );
 }
 
-// ─── Multi-Image Manager ──────────────────────────────────────────────────────
+// --- Multi-Image Manager ------------------------------------------------------
 export interface MultiImageManagerProps {
   /** Array of current image URLs (Cloudinary links) */
   images: { image_url: string }[];

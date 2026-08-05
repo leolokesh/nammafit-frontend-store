@@ -10,16 +10,23 @@ import {
   Layers,
   LogOut,
   Scan,
+  Sparkles,
+  Shirt,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/contexts/SidebarContext";
 
 const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/products", icon: Package, label: "Products" },
-  { href: "/sizing", icon: Ruler, label: "Sizing" },
+  // { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/ai-dashboard", icon: Sparkles, label: "AI Dashboard" },
+  { href: "/customers", icon: Users, label: "Customers" },
+  // { href: "/products", icon: Package, label: "Products" },
+  // { href: "/sizing", icon: Ruler, label: "Sizing" },
+  { href: "/digital-ledger", icon: Scan, label: "AI Body Scan" },
+  { href: "/ai-style-consultation", icon: Sparkles, label: "AI Style Consultation" },
+  { href: "/ai-trial", icon: Shirt, label: "AI Trial" },
   { href: "/fabrics", icon: Layers, label: "Fabrics" },
-  { href: "/digital-ledger", icon: Scan, label: "Digital Ledger" },
 ];
 
 export default function Sidebar() {
@@ -48,7 +55,7 @@ export default function Sidebar() {
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        {/* ── Logo ─────────────────────────────────────────────────────────────── */}
+        {/* -- Logo --------------------------------------------------------------- */}
         <div className={`py-5 border-b border-white/10 flex ${isCollapsed ? "md:justify-center md:px-3" : "px-5"} px-5`}>
           {isCollapsed ? (
             <div className="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center shadow-lg shadow-black/40 flex-shrink-0 overflow-hidden p-1.5">
@@ -71,7 +78,7 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* ── Nav ──────────────────────────────────────────────────────────────── */}
+        {/* -- Nav ---------------------------------------------------------------- */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map(({ href, icon: Icon, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + "/");
@@ -105,7 +112,7 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* ── User footer ──────────────────────────────────────────────────────── */}
+        {/* -- User footer -------------------------------------------------------- */}
         <div className="px-3 py-4 border-t border-white/10">
           <div className={`${isCollapsed ? "md:hidden block" : "block"}`}>
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/5 mb-2">

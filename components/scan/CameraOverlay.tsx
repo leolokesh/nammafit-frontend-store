@@ -3,7 +3,7 @@
 import React from "react";
 
 interface CameraOverlayProps {
-  type: "front" | "side";
+  type: "front" | "side" | "skin_tone";
 }
 
 export function CameraOverlay({ type }: CameraOverlayProps) {
@@ -13,21 +13,24 @@ export function CameraOverlay({ type }: CameraOverlayProps) {
       <div className="w-full flex justify-center mt-2 animate-fade-in">
         <div className="px-4 py-2 rounded-full bg-slate-950/90 backdrop-blur-md border border-[#B0E4CC]/30 text-[11px] font-bold text-[#B0E4CC] tracking-wider uppercase shadow-xl flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-[#B0E4CC] animate-pulse" />
-          {type === "front" ? "Align Front Profile" : "Align Side Profile"}
+          {type === "front"
+            ? "Align Front Profile"
+            : type === "side"
+            ? "Align Side Profile"
+            : "Sample Skin Tone"}
         </div>
       </div>
 
       {/* SVG Outline Overlay */}
       <div className="flex-1 w-full flex items-center justify-center min-h-0 relative my-2">
         {type === "front" ? (
-          // Front body outline overlay (Woman Silhouette, Maximized Sizing)
+          // Front body outline overlay
           <svg
             className="w-full max-w-[500px] h-[98%] max-h-[98%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
             viewBox="0 0 400 600"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Enlarged, stretched female silhouette coordinates for easier alignment */}
             <path
               d="
                 M 200,10
@@ -68,27 +71,20 @@ export function CameraOverlay({ type }: CameraOverlayProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            
-            {/* Horizontal Alignment Guides */}
-            <line x1="60" y1="165" x2="340" y2="165" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" /> {/* Shoulders */}
-            <line x1="60" y1="255" x2="340" y2="255" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" /> {/* Hips */}
-            <line x1="120" y1="465" x2="280" y2="465" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" /> {/* Knees */}
-
-            {/* Vertical Center Axis */}
+            <line x1="60" y1="165" x2="340" y2="165" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" />
+            <line x1="60" y1="255" x2="340" y2="255" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" />
+            <line x1="120" y1="465" x2="280" y2="465" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.4" />
             <line x1="200" y1="15" x2="200" y2="585" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 6" opacity="0.3" />
           </svg>
-        ) : (
-          // Symmetrical Simple Side Profile outline overlay (Head Circle + Symmetrical Torso & Legs Column)
+        ) : type === "side" ? (
+          // Side Profile outline overlay
           <svg
             className="w-full max-w-[380px] h-[96%] max-h-[96%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_20px_rgba(176,228,204,0.4)] transition-all duration-500"
             viewBox="0 0 300 600"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Simple Side Profile Head Circle */}
             <circle cx="150" cy="80" r="42" stroke="currentColor" strokeWidth="5" />
-            
-            {/* Simple Symmetrical Side Body & Legs column */}
             <path
               d="
                 M 135,130
@@ -106,8 +102,29 @@ export function CameraOverlay({ type }: CameraOverlayProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            {/* Vertical Center Axis */}
             <line x1="150" y1="15" x2="150" y2="585" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 6" opacity="0.3" />
+          </svg>
+        ) : (
+          // Skin Tone Sampling Guide Overlay (Target Circle & Color Spectrum Ring)
+          <svg
+            className="w-full max-w-[320px] h-[80%] opacity-95 text-[#B0E4CC] drop-shadow-[0_0_30px_rgba(176,228,204,0.5)] transition-all duration-500"
+            viewBox="0 0 300 300"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Target Sampling Circle */}
+            <circle cx="150" cy="150" r="90" stroke="currentColor" strokeWidth="4" strokeDasharray="6 6" />
+            <circle cx="150" cy="150" r="40" stroke="currentColor" strokeWidth="2" opacity="0.6" />
+            
+            {/* Crosshairs */}
+            <line x1="150" y1="40" x2="150" y2="260" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+            <line x1="40" y1="150" x2="260" y2="150" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+
+            {/* Corner Bracket Reticles */}
+            <path d="M 50,80 L 50,50 L 80,50" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 220,50 L 250,50 L 250,80" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 50,220 L 50,250 L 80,250" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 220,250 L 250,250 L 250,220" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
           </svg>
         )}
       </div>
@@ -115,9 +132,11 @@ export function CameraOverlay({ type }: CameraOverlayProps) {
       {/* Alignment tips banner */}
       <div className="w-full flex flex-col items-center gap-1.5 mb-2 text-center">
         <p className="text-[11px] text-slate-300 max-w-[320px] bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 shadow-md leading-relaxed">
-          {type === "front" 
-            ? "Position yourself within the center guide and stand straight facing the camera." 
-            : "Turn sideways within the guide and stand straight in a neutral posture."}
+          {type === "front"
+            ? "Position yourself within the center guide and stand straight facing the camera."
+            : type === "side"
+            ? "Turn sideways within the guide and stand straight in a neutral posture."
+            : "Center your cheek, wrist, or arm inside the target ring under natural light to sample skin tone."}
         </p>
       </div>
     </div>

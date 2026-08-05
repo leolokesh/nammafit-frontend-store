@@ -20,8 +20,9 @@ import type { Product } from "@/types";
 import Select from "@/components/ui/Select";
 import { BodyScan } from "@/components/scan/BodyScan";
 import { ModelViewer3D } from "./ModelViewer3D";
+import { BASE_URL } from "@/lib/axios";
 
-const API_BASE = "https://fitintelligence.onrender.com";
+const API_BASE = BASE_URL;
 
 const SHAPE_OPTIONS = [
   { v: "full_body", label: "Full Body" },
@@ -40,8 +41,8 @@ const FIT_OPTIONS = [
 
 const FIT_ISSUES = [
   { v: "good", label: "All good" },
-  { v: "tight_bust", label: "Tight bust" },
-  { v: "loose_bust", label: "Loose bust" },
+  { v: "tight_chest", label: "Tight chest" },
+  { v: "loose_chest", label: "Loose chest" },
   { v: "tight_waist", label: "Tight waist" },
   { v: "loose_waist", label: "Loose waist" },
   { v: "tight_hip", label: "Tight hip" },
@@ -49,7 +50,7 @@ const FIT_ISSUES = [
 ];
 
 const MEASUREMENT_KEYS = [
-  { k: "bust", label: "Bust" },
+  { k: "chest", label: "Chest" },
   { k: "waist", label: "Waist" },
   { k: "hip", label: "Hip" },
   { k: "shoulder", label: "Shoulder" },
@@ -702,7 +703,7 @@ function FormView({
         <Sparkles size={16} /> Recommend My Size
       </button>
 
-      {/* ── Body Shape Guide Modal ── */}
+      {/* -- Body Shape Guide Modal -- */}
       {showShapeGuide && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-fade-in">
           <div className="bg-[#0c1a18] border border-[#B0E4CC]/20 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative text-left">

@@ -141,3 +141,28 @@ export const stitchingOrderApi = {
     api.delete(`/products/stitching-orders/${id}/`),
 };
 
+// ─── AI Style Consultations & Recommendations ─────────────────────────────────
+export const styleConsultationApi = {
+  list: () => api.get<any[]>("/products/style-consultations/"),
+
+  create: (data: any) =>
+    api.post<any>("/products/style-consultations/", data),
+
+  getByCustomer: (customerId: number) =>
+    api.get<any[]>(`/products/customers/${customerId}/style-consultations/`),
+
+  updateRecommendation: (recommendationId: string, data: { added_by_user?: boolean }) =>
+    api.patch<any>(`/products/style-recommendations/${recommendationId}/`, data),
+};
+
+// ─── AI Trial Sessions ─────────────────────────────────────────────────────────
+export const aiTrialSessionApi = {
+  list: () => api.get<any[]>("/products/ai-trial-sessions/"),
+
+  create: (data: any) =>
+    api.post<any>("/products/ai-trial-sessions/", data),
+
+  getByCustomer: (customerId: number) =>
+    api.get<any[]>(`/products/customers/${customerId}/ai-trial-sessions/`),
+};
+

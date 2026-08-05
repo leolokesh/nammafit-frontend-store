@@ -11,7 +11,7 @@ import { CameraOverlay } from "./CameraOverlay";
 import { FaceMaskCanvas, captureAndMaskFace } from "./FaceMaskCanvas";
 
 interface CameraViewProps {
-  type: "front" | "side";
+  type: "front" | "side" | "skin_tone";
   onCapture: (imageSrc: string, landmarks: any) => void;
   onCancel: () => void;
 }
@@ -22,7 +22,7 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
   const faceEngine = useFaceDetection();
   
   const [faceDetections, setFaceDetections] = useState<any[]>([]);
-  const [validation, setValidation] = useState<ValidationResult>({ isValid: false, issues: ["Initializing pose detection..."] });
+  const [validation, setValidation] = useState<ValidationResult>({ isValid: false, issues: ["Initializing vision engine..."] });
   const [isCapturing, setIsCapturing] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
@@ -31,7 +31,6 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
   const latestLandmarksRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Keep track of dimensions for canvas overlay sizing
   useEffect(() => {
     if (!containerRef.current) return;
     const resizeObserver = new ResizeObserver((entries) => {
@@ -46,14 +45,12 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Frame processing loop
   const processFrame = useCallback(() => {
     const webcam = camera.webcamRef.current;
     if (webcam && webcam.video && webcam.video.readyState === 4) {
       const video = webcam.video;
       const currentTime = video.currentTime;
       
-      // Only process when a new video frame is rendered
       if (currentTime !== lastTimeRef.current) {
         lastTimeRef.current = currentTime;
         const timestamp = performance.now();
@@ -66,16 +63,21 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
         }
         latestLandmarksRef.current = poseLandmarks;
 
-        // 2. Validate Pose
-        const validationResult = type === "front"
-          ? PoseValidator.validateFrontPose(poseLandmarks)
-          : PoseValidator.validateSidePose(poseLandmarks);
+        // 2. Validate Pose or Skin Tone
+        let validationResult: ValidationResult;
+        if (type === "front") {
+          validationResult = PoseValidator.validateFrontPose(poseLandmarks);
+        } else if (type === "side") {
+          validationResult = PoseValidator.validateSidePose(poseLandmarks);
+        } else {
+          // Skin tone scan sampling: always valid once frame is active
+          validationResult = { isValid: true, issues: [] };
+        }
 
-        // 3. Detect Face for live privacy mask overlay
+        // 3. Detect Face for live privacy mask overlay (disabled on skin tone scan for color sampling)
         const faceResult = faceEngine.detectFace(video, timestamp);
         const detections = faceResult ? (faceResult.detections || []) : [];
 
-        // 4. Update states
         setFaceDetections(detections);
         setValidation(validationResult);
       }
@@ -83,7 +85,6 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
     requestRef.current = requestAnimationFrame(processFrame);
   }, [camera.webcamRef, poseEngine, faceEngine, type]);
 
-  // Start frame loop once models are ready
   useEffect(() => {
     if (!poseEngine.isLoading && !faceEngine.isLoading && camera.hasPermission) {
       requestRef.current = requestAnimationFrame(processFrame);
@@ -95,25 +96,24 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
     };
   }, [poseEngine.isLoading, faceEngine.isLoading, camera.hasPermission, processFrame]);
 
-  // Click handler to run capture with face masking applied in memory
   const handleCapture = async () => {
     const webcam = camera.webcamRef.current;
     if (!webcam || !webcam.video) return;
     
     setIsCapturing(true);
     try {
-      // Access direct face detector vision tasks instance from hook
-      const rawDetectorPromise = faceEngine.detectFace;
-      // Get the hidden face detector ref inside faceEngine
-      // We can use the helper we created in FaceMaskCanvas which handles local canvas detection
-      // We'll pass the video element. It handles detection fallbacks internally as well
-      const maskedBase64 = await captureAndMaskFace(
-        webcam.video, 
-        (faceEngine as any).faceDetectorRef?.current,
-        latestLandmarksRef.current
-      );
-      
-      onCapture(maskedBase64, latestLandmarksRef.current);
+      if (type === "skin_tone") {
+        // For skin tone, capture screenshot directly without face blackout so skin tone can be sampled
+        const rawScreenshot = webcam.getScreenshot() || "";
+        onCapture(rawScreenshot, latestLandmarksRef.current);
+      } else {
+        const maskedBase64 = await captureAndMaskFace(
+          webcam.video, 
+          (faceEngine as any).faceDetectorRef?.current,
+          latestLandmarksRef.current
+        );
+        onCapture(maskedBase64, latestLandmarksRef.current);
+      }
     } catch (e) {
       console.error("Capture failed:", e);
     } finally {
@@ -168,8 +168,8 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
           />
         ) : null}
 
-        {/* Real-time solid face privacy mask canvas */}
-        {camera.hasPermission && !isModelLoading && (
+        {/* Real-time solid face privacy mask canvas (only for front/side scans) */}
+        {camera.hasPermission && !isModelLoading && type !== "skin_tone" && (
           <FaceMaskCanvas
             detections={faceDetections}
             width={dimensions.width}
@@ -190,7 +190,7 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
             </div>
             <h4 className="font-semibold text-slate-200 text-sm">Camera Connection Required</h4>
             <p className="text-xs text-slate-500 max-w-[260px] leading-relaxed">
-              We need access to your camera to capture body outlines. Please enable camera permissions.
+              We need access to your camera to capture scan images. Please enable camera permissions.
             </p>
             <button
               onClick={camera.requestPermission}
@@ -207,7 +207,7 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
             <Loader2 className="w-8 h-8 animate-spin text-[#B0E4CC]" />
             <h4 className="text-xs font-medium text-slate-300">Initializing Vision Engine...</h4>
             <p className="text-[10px] text-slate-500 max-w-[200px] leading-snug">
-              Downloading face privacy and pose estimation models from MediaPipe CDN
+              Downloading privacy and pose estimation models from MediaPipe CDN
             </p>
           </div>
         )}
@@ -215,13 +215,12 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
 
       {/* Footer validation status & capture trigger */}
       <div className="pt-4 flex flex-col items-center gap-3">
-        {/* Real-time pose validation feedback */}
         {!isModelLoading && camera.hasPermission && (
           <div className="h-8 flex items-center justify-center text-center">
             {validation.isValid ? (
               <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 animate-bounce">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                ✓ Ready to Capture
+                ✓ Ready to Sample {type === "skin_tone" ? "Skin Tone" : "Pose"}
               </div>
             ) : (
               <div className="px-3 py-1 rounded-full bg-slate-900/60 border border-white/5 text-[10px] text-slate-400 font-medium">
@@ -231,7 +230,6 @@ export function CameraView({ type, onCapture, onCancel }: CameraViewProps) {
           </div>
         )}
 
-        {/* Circular Capture button */}
         <button
           onClick={handleCapture}
           disabled={!validation.isValid || isCapturing || isModelLoading}
