@@ -1,16 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 export const getApiBaseUrl = (): string => {
-  let url = process.env.NEXT_PUBLIC_API_URL || "https://nammafit-backend-django.onrender.com/api";
-  url = url.trim();
-  if (url.startsWith("ttps://")) {
-    url = `h${url}`;
-  } else if (url.startsWith("tps://")) {
-    url = `ht${url}`;
-  } else if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    url = `https://${url.replace(/^[:/]+/, "")}`;
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
   }
-  return url;
+  return "https://nammafit-backend-django.onrender.com/api";
 };
 
 export const BASE_URL = getApiBaseUrl();
