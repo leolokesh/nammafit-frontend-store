@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getApiBaseUrl } from "@/lib/axios";
+import api, { getApiBaseUrl } from "@/lib/axios";
 import { customerApi, aiTrialSessionApi } from "@/lib/api";
 import { useCustomerContext } from "@/contexts/CustomerContext";
 import { CustomSelect } from "@/components/ui/CustomSelect";
@@ -199,27 +199,21 @@ export default function AITrial() {
     };
 
     try {
-      const targetUrl = `${getApiBaseUrl()}/ai-trial/`;
-      const res = await fetch(targetUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer_id: selectedCustomerId,
-          customer_name: custName,
-          customer_phone: selectedCustomer?.phone || "",
-          customer_height: selectedCustomer?.height || 178,
-          customer_weight: selectedCustomer?.weight || 74,
-          customer_measurements,
-          suit_name: selectedSuit,
-          front_photo: photosToUse.front || "",
-          side_photo: photosToUse.side || "",
-          back_photo: photosToUse.side || ""
-        })
+      console.log("[AI TRIAL FRONTEND] Calling /ai-trial/ API with customer measurements and photos...");
+      const { data } = await api.post("/ai-trial/", {
+        customer_id: selectedCustomerId,
+        customer_name: custName,
+        customer_phone: selectedCustomer?.phone || "",
+        customer_height: selectedCustomer?.height || 178,
+        customer_weight: selectedCustomer?.weight || 74,
+        customer_measurements,
+        suit_name: selectedSuit,
+        front_photo: photosToUse.front || "",
+        side_photo: photosToUse.side || "",
+        back_photo: photosToUse.side || ""
       });
 
-      const data = await res.json();
-
-      if (res.ok && data && !data.error) {
+      if (data && !data.error) {
         setAuditData(data);
         setPhase("result");
 

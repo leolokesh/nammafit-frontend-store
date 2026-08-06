@@ -443,6 +443,10 @@ export default function AIStyleConsultation() {
         let finalRecommendations = RECOMMENDATIONS;
 
         try {
+          console.log("[AI STYLE FRONTEND] Initiating API call to /generate-style/...");
+          console.log("  • Occasion:", formData.occasion, "| Venue:", formData.venue, "| Role:", formData.customerRole);
+          console.log("  • Photo payload sizes -> skinTone:", capturedPhotos.skinTone?.length || 0, "chars | front:", capturedPhotos.front?.length || 0, "chars | side:", capturedPhotos.side?.length || 0, "chars");
+
           const { data } = await api.post("/generate-style/", {
             occasion: formData.occasion,
             customer_role: formData.customerRole,
@@ -471,6 +475,8 @@ export default function AIStyleConsultation() {
             front_close_up: capturedPhotos.front || "",
             torso_image: capturedPhotos.side || ""
           });
+
+          console.log("[AI STYLE FRONTEND SUCCESS] API Response received:", data);
 
           if (data.error) {
             throw new Error(data.error);
