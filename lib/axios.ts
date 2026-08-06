@@ -1,10 +1,27 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 export const getApiBaseUrl = (): string => {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+  let rawUrl = process.env.NEXT_PUBLIC_API_URL || "https://nammafit-backend-django.onrender.com/api";
+  rawUrl = rawUrl.trim();
+  if (rawUrl.startsWith("ttps://")) {
+    rawUrl = `h${rawUrl}`;
+  } else if (rawUrl.startsWith("ttp://")) {
+    rawUrl = `h${rawUrl}`;
+  } else if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+    rawUrl = `https://${rawUrl}`;
   }
-  return "https://nammafit-backend-django.onrender.com/api";
+
+  // Strip trailing slash
+  if (rawUrl.endsWith("/")) {
+    rawUrl = rawUrl.slice(0, -1);
+  }
+
+  // Append /api suffix if not already present
+  if (!rawUrl.endsWith("/api")) {
+    rawUrl = `${rawUrl}/api`;
+  }
+
+  return rawUrl;
 };
 
 export const BASE_URL = getApiBaseUrl();
