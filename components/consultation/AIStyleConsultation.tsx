@@ -3,6 +3,7 @@
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import React, { useState, useEffect } from "react";
 import { customerApi, styleConsultationApi } from "@/lib/api";
+import api from "@/lib/axios";
 import {
   Sparkles,
   Camera,
@@ -442,46 +443,35 @@ export default function AIStyleConsultation() {
         let finalRecommendations = RECOMMENDATIONS;
 
         try {
-          const res = await fetch(`${BASE_URL}/generate-style/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              occasion: formData.occasion,
-              customer_role: formData.customerRole,
-              event_time: formData.eventTime,
-              venue: formData.venue,
-              season: formData.season,
+          const { data } = await api.post("/generate-style/", {
+            occasion: formData.occasion,
+            customer_role: formData.customerRole,
+            event_time: formData.eventTime,
+            venue: formData.venue,
+            season: formData.season,
 
-              style_preference: (formData as any).stylePreference || "Luxury",
-              desired_impression: formData.desiredImpression,
-              style_inspiration: formData.styleInspiration || "",
+            style_preference: (formData as any).stylePreference || "Luxury",
+            desired_impression: formData.desiredImpression,
+            style_inspiration: formData.styleInspiration || "",
 
-              lapel_preference: formData.lapelStyle || "Let AI Decide",
-              suit_style: formData.suitStyle || "Single Breasted",
-              fit_preference: (formData as any).fitPreference || "Tailored Fit",
-              waistcoat: formData.waistcoatStyle || "Let AI Decide",
+            lapel_preference: formData.lapelStyle || "Let AI Decide",
+            suit_style: formData.suitStyle || "Single Breasted",
+            fit_preference: (formData as any).fitPreference || "Tailored Fit",
+            waistcoat: formData.waistcoatStyle || "Let AI Decide",
 
-              favorite_color: formData.favoriteColor,
-              colors_to_avoid: formData.colorsToAvoid,
-              bride_partner_color: formData.partnerColor,
+            favorite_color: formData.favoriteColor,
+            colors_to_avoid: formData.colorsToAvoid,
+            bride_partner_color: formData.partnerColor,
 
-              budget: formData.budget,
+            budget: formData.budget,
 
-              additional_notes: formData.additionalNotes,
+            additional_notes: formData.additionalNotes,
 
-              skin_tone_image: capturedPhotos.skinTone || "",
-              front_close_up: capturedPhotos.front || "",
-              torso_image: capturedPhotos.side || ""
-            })
+            skin_tone_image: capturedPhotos.skinTone || "",
+            front_close_up: capturedPhotos.front || "",
+            torso_image: capturedPhotos.side || ""
           });
 
-          if (!res.ok) {
-            const errJson = await res.json().catch(() => ({}));
-            const msg = errJson.error || errJson.detail || `Server Error ${res.status}: Failed to generate AI style recommendations.`;
-            throw new Error(msg);
-          }
-
-          const data = await res.json();
           if (data.error) {
             throw new Error(data.error);
           }
