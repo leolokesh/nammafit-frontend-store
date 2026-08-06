@@ -447,34 +447,40 @@ export default function AIStyleConsultation() {
           console.log("  • Occasion:", formData.occasion, "| Venue:", formData.venue, "| Role:", formData.customerRole);
           console.log("  • Photo payload sizes -> skinTone:", capturedPhotos.skinTone?.length || 0, "chars | front:", capturedPhotos.front?.length || 0, "chars | side:", capturedPhotos.side?.length || 0, "chars");
 
-          const { data } = await api.post("/generate-style/", {
-            occasion: formData.occasion,
-            customer_role: formData.customerRole,
-            event_time: formData.eventTime,
-            venue: formData.venue,
-            season: formData.season,
+          const { data } = await api.post(
+            "/generate-style/",
+            {
+              occasion: formData.occasion,
+              customer_role: formData.customerRole,
+              event_time: formData.eventTime,
+              venue: formData.venue,
+              season: formData.season,
 
-            style_preference: (formData as any).stylePreference || "Luxury",
-            desired_impression: formData.desiredImpression,
-            style_inspiration: formData.styleInspiration || "",
+              style_preference: (formData as any).stylePreference || "Luxury",
+              desired_impression: formData.desiredImpression,
+              style_inspiration: formData.styleInspiration || "",
 
-            lapel_preference: formData.lapelStyle || "Let AI Decide",
-            suit_style: formData.suitStyle || "Single Breasted",
-            fit_preference: (formData as any).fitPreference || "Tailored Fit",
-            waistcoat: formData.waistcoatStyle || "Let AI Decide",
+              lapel_preference: formData.lapelStyle || "Let AI Decide",
+              suit_style: formData.suitStyle || "Single Breasted",
+              fit_preference: (formData as any).fitPreference || "Tailored Fit",
+              waistcoat: formData.waistcoatStyle || "Let AI Decide",
 
-            favorite_color: formData.favoriteColor,
-            colors_to_avoid: formData.colorsToAvoid,
-            bride_partner_color: formData.partnerColor,
+              favorite_color: formData.favoriteColor,
+              colors_to_avoid: formData.colorsToAvoid,
+              bride_partner_color: formData.partnerColor,
 
-            budget: formData.budget,
+              budget: formData.budget,
 
-            additional_notes: formData.additionalNotes,
+              additional_notes: formData.additionalNotes,
 
-            skin_tone_image: capturedPhotos.skinTone || "",
-            front_close_up: capturedPhotos.front || "",
-            torso_image: capturedPhotos.side || ""
-          });
+              skin_tone_image: capturedPhotos.skinTone || "",
+              front_close_up: capturedPhotos.front || "",
+              torso_image: capturedPhotos.side || ""
+            },
+            {
+              timeout: 120000 // Extended timeout to 120 seconds
+            }
+          );
 
           console.log("[AI STYLE FRONTEND SUCCESS] API Response received:", data);
 
@@ -566,8 +572,13 @@ export default function AIStyleConsultation() {
           setTimeout(() => setStep(5), 400);
 
         } catch (err: any) {
-          const errMsg = err?.message || "AI Style Consultation Service Error";
-          console.error("AI Style Consultation Error:", err);
+          const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || "AI Style Consultation Service Error";
+          console.error("[AI STYLE FRONTEND ERROR] Failed to fetch style recommendations:", err);
+          if (err?.response) {
+            console.error("  • HTTP Status:", err.response.status);
+            console.error("  • Response Data:", err.response.data);
+            console.error("  • Request URL:", err.config?.url);
+          }
           clearInterval(progressInterval);
           clearInterval(interval);
           setLoadingProgress(0);

@@ -200,18 +200,24 @@ export default function AITrial() {
 
     try {
       console.log("[AI TRIAL FRONTEND] Calling /ai-trial/ API with customer measurements and photos...");
-      const { data } = await api.post("/ai-trial/", {
-        customer_id: selectedCustomerId,
-        customer_name: custName,
-        customer_phone: selectedCustomer?.phone || "",
-        customer_height: selectedCustomer?.height || 178,
-        customer_weight: selectedCustomer?.weight || 74,
-        customer_measurements,
-        suit_name: selectedSuit,
-        front_photo: photosToUse.front || "",
-        side_photo: photosToUse.side || "",
-        back_photo: photosToUse.side || ""
-      });
+      const { data } = await api.post(
+        "/ai-trial/",
+        {
+          customer_id: selectedCustomerId,
+          customer_name: custName,
+          customer_phone: selectedCustomer?.phone || "",
+          customer_height: selectedCustomer?.height || 178,
+          customer_weight: selectedCustomer?.weight || 74,
+          customer_measurements,
+          suit_name: selectedSuit,
+          front_photo: photosToUse.front || "",
+          side_photo: photosToUse.side || "",
+          back_photo: photosToUse.back || photosToUse.side || ""
+        },
+        {
+          timeout: 120000 // Extended timeout to 120 seconds for Gemini fit analysis on Render
+        }
+      );
 
       if (data && !data.error) {
         setAuditData(data);
@@ -245,7 +251,11 @@ export default function AITrial() {
       }
     } catch (err: any) {
       console.error("AI Trial API network error:", err);
-      setErrorMessage(err.message || "Network error connecting to AI Fitting Service.");
+      let detailMsg = err.response?.data?.error || err.message || "Network error connecting to AI Fitting Service.";
+      if (err.message === "Network Error" || err.code === "ERR_NETWORK" || !err.response) {
+        detailMsg = "Network / CORS Error: The Render backend failed to respond. This usually occurs if the server timed out (30s limit on Render), crashed due to missing GEMINI_API_KEY, or dropped headers on an HTTP 500/504 error.";
+      }
+      setErrorMessage(detailMsg);
       setPhase("error");
     }
   };

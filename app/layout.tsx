@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full`} suppressHydrationWarning>
-      <body className="min-h-full bg-background text-slate-100 antialiased" suppressHydrationWarning>
+      <body className={`${inter.className} min-h-full bg-background text-slate-100 antialiased`} suppressHydrationWarning>
         <AuthProvider>
           <ToastProvider>{children}</ToastProvider>
         </AuthProvider>
