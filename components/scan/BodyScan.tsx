@@ -6,6 +6,8 @@ import { CameraView } from "./CameraView";
 import { PreviewScreen } from "./PreviewScreen";
 import { bodyScanApi } from "@/services/bodyScanApi";
 import { getSessionCustomerId } from "@/components/products/DemoPanel";
+import { validateUploadedPhotoPose } from "@/lib/poseValidation";
+import { useToastContext } from "@/contexts/ToastContext";
 
 type ScanStep =
   | "intro"
@@ -36,6 +38,7 @@ export function BodyScan({
   mode = "recommend",
   includeSkinTone = false,
 }: BodyScanProps) {
+  const { addToast } = useToastContext();
   const [step, setStep] = useState<ScanStep>("intro");
   const [frontImage, setFrontImage] = useState<string>("");
   const [sideImage, setSideImage] = useState<string>("");
@@ -45,13 +48,22 @@ export function BodyScan({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // File Change Handlers
+  // File Change Handlers with MediaPipe Client-Side Validation
   const handleFrontFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) setFrontImage(event.target.result as string);
+    reader.onload = async (event) => {
+      if (event.target?.result) {
+        const dataUrl = event.target.result as string;
+        const check = await validateUploadedPhotoPose(dataUrl, "front posture photo");
+        if (!check.isValid) {
+          addToast(check.error || "No human posture detected in photo. Please select a clear photo of yourself.", "warning");
+          e.target.value = "";
+          return;
+        }
+        setFrontImage(dataUrl);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -60,8 +72,17 @@ export function BodyScan({
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) setSideImage(event.target.result as string);
+    reader.onload = async (event) => {
+      if (event.target?.result) {
+        const dataUrl = event.target.result as string;
+        const check = await validateUploadedPhotoPose(dataUrl, "side posture photo");
+        if (!check.isValid) {
+          addToast(check.error || "No human posture detected in photo. Please select a clear photo of yourself.", "warning");
+          e.target.value = "";
+          return;
+        }
+        setSideImage(dataUrl);
+      }
     };
     reader.readAsDataURL(file);
   };

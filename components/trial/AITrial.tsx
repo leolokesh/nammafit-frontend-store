@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import api, { getApiBaseUrl } from "@/lib/axios";
 import { customerApi, aiTrialSessionApi } from "@/lib/api";
+import { compressBase64Image } from "@/lib/utils";
 import { useCustomerContext } from "@/contexts/CustomerContext";
+import { useToastContext } from "@/contexts/ToastContext";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { BodyScan, ScanResultData } from "@/components/scan/BodyScan";
 import {
@@ -53,6 +55,7 @@ interface AuditResult {
 }
 
 export default function AITrial() {
+  const { addToast } = useToastContext();
   const [phase, setPhase] = useState<"scan" | "preview" | "auditing" | "result" | "error">("scan");
   
   // Global Customer Selection Context
@@ -104,6 +107,7 @@ export default function AITrial() {
   const [selectedSuit, setSelectedSuit] = useState<string>("Midnight Royal Navy Wool-Silk Three-Piece Tuxedo");
   const [auditData, setAuditData] = useState<AuditResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [trialRetryCount, setTrialRetryCount] = useState<number>(0);
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(1);
@@ -199,7 +203,14 @@ export default function AITrial() {
     };
 
     try {
-      console.log("[AI TRIAL FRONTEND] Calling /ai-trial/ API with customer measurements and photos...");
+      // Compress Base64 photos in parallel to drastically speed up upload size & execution time
+      const [frontPhotoCompressed, sidePhotoCompressed, backPhotoCompressed] = await Promise.all([
+        photosToUse.front ? compressBase64Image(photosToUse.front, 800, 0.7) : Promise.resolve(""),
+        photosToUse.side ? compressBase64Image(photosToUse.side, 800, 0.7) : Promise.resolve(""),
+        photosToUse.back ? compressBase64Image(photosToUse.back, 800, 0.7) : Promise.resolve("")
+      ]);
+
+      console.log("[AI TRIAL FRONTEND] Calling /ai-trial/ API with compressed photos...");
       const { data } = await api.post(
         "/ai-trial/",
         {
@@ -210,9 +221,9 @@ export default function AITrial() {
           customer_weight: selectedCustomer?.weight || 74,
           customer_measurements,
           suit_name: selectedSuit,
-          front_photo: photosToUse.front || "",
-          side_photo: photosToUse.side || "",
-          back_photo: photosToUse.back || photosToUse.side || ""
+          front_photo: frontPhotoCompressed,
+          side_photo: sidePhotoCompressed,
+          back_photo: backPhotoCompressed || sidePhotoCompressed
         },
         {
           timeout: 120000 // Extended timeout to 120 seconds for Gemini fit analysis on Render
@@ -255,6 +266,20 @@ export default function AITrial() {
       if (err.message === "Network Error" || err.code === "ERR_NETWORK" || !err.response) {
         detailMsg = "Network / CORS Error: The Render backend failed to respond. This usually occurs if the server timed out (30s limit on Render), crashed due to missing GEMINI_API_KEY, or dropped headers on an HTTP 500/504 error.";
       }
+
+      // Auto-Retry Loop Logic (Max 3 Auto Retries)
+      if (trialRetryCount < 3) {
+        const nextAttempt = trialRetryCount + 1;
+        console.warn(`[AI TRIAL AUTO-RETRY] Encountered error on attempt ${trialRetryCount + 1}. Auto-retrying fit audit (${nextAttempt}/3) in 3 seconds...`);
+        addToast(`Network hiccup detected. Auto-retrying fit audit (${nextAttempt}/3)...`, "warning");
+
+        setTrialRetryCount(nextAttempt);
+        setTimeout(() => {
+          runFitAnalysis(photosToUse);
+        }, 3000);
+        return;
+      }
+
       setErrorMessage(detailMsg);
       setPhase("error");
     }
@@ -538,7 +563,10 @@ export default function AITrial() {
 
           <div className="flex justify-center gap-4 pt-2">
             <button
-              onClick={runFitAnalysis}
+              onClick={() => {
+                setTrialRetryCount(0);
+                runFitAnalysis();
+              }}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-xs flex items-center gap-2 hover:brightness-110 cursor-pointer"
             >
               <RefreshCw size={14} />

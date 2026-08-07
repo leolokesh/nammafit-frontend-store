@@ -4,6 +4,7 @@ import { CustomSelect } from "@/components/ui/CustomSelect";
 import React, { useState, useEffect } from "react";
 import { customerApi, styleConsultationApi } from "@/lib/api";
 import api from "@/lib/axios";
+import { compressBase64Image } from "@/lib/utils";
 import {
   Sparkles,
   Camera,
@@ -338,6 +339,7 @@ export default function AIStyleConsultation() {
   // Loading Cycling Text State for Step 4
   const [loadingIndex, setLoadingIndex] = useState<number>(0);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
+  const [autoRetryCount, setAutoRetryCount] = useState<number>(0);
 
   // Save, Add to Account & PDF Modal States
   const [savedItems, setSavedItems] = useState<Record<string, boolean>>({});
@@ -432,20 +434,27 @@ export default function AIStyleConsultation() {
 
       const progressInterval = setInterval(() => {
         setLoadingProgress((prev) => {
-          if (prev >= 90) {
-            return 90; // Hold at 90% until API completes
-          }
-          return prev + 15;
+          if (prev < 25) return prev + 2;     // Stage 1 (0-6s)
+          if (prev < 50) return prev + 1.2;   // Stage 2 (6-18s)
+          if (prev < 85) return prev + 0.6;   // Stage 3 (18-45s)
+          if (prev < 92) return prev + 0.15;  // Stage 4 (45-55s hold at 92%)
+          return 92;
         });
-      }, 500);
+      }, 400);
 
       const fetchStyleRecommendations = async () => {
         let finalRecommendations = RECOMMENDATIONS;
 
         try {
-          console.log("[AI STYLE FRONTEND] Initiating API call to /generate-style/...");
+          // Compress Base64 photos in parallel
+          const [skinToneCompressed, frontCompressed, sideCompressed] = await Promise.all([
+            capturedPhotos.skinTone ? compressBase64Image(capturedPhotos.skinTone, 800, 0.7) : Promise.resolve(""),
+            capturedPhotos.front ? compressBase64Image(capturedPhotos.front, 800, 0.7) : Promise.resolve(""),
+            capturedPhotos.side ? compressBase64Image(capturedPhotos.side, 800, 0.7) : Promise.resolve("")
+          ]);
+
+          console.log("[AI STYLE FRONTEND] Initiating API call to /generate-style/ with compressed photos...");
           console.log("  • Occasion:", formData.occasion, "| Venue:", formData.venue, "| Role:", formData.customerRole);
-          console.log("  • Photo payload sizes -> skinTone:", capturedPhotos.skinTone?.length || 0, "chars | front:", capturedPhotos.front?.length || 0, "chars | side:", capturedPhotos.side?.length || 0, "chars");
 
           const { data } = await api.post(
             "/generate-style/",
@@ -464,6 +473,7 @@ export default function AIStyleConsultation() {
               suit_style: formData.suitStyle || "Single Breasted",
               fit_preference: (formData as any).fitPreference || "Tailored Fit",
               waistcoat: formData.waistcoatStyle || "Let AI Decide",
+              pocket_style: formData.pocketStyle || "Let AI Decide",
 
               favorite_color: formData.favoriteColor,
               colors_to_avoid: formData.colorsToAvoid,
@@ -473,9 +483,9 @@ export default function AIStyleConsultation() {
 
               additional_notes: formData.additionalNotes,
 
-              skin_tone_image: capturedPhotos.skinTone || "",
-              front_close_up: capturedPhotos.front || "",
-              torso_image: capturedPhotos.side || ""
+              skin_tone_image: skinToneCompressed,
+              front_close_up: frontCompressed,
+              torso_image: sideCompressed
             },
             {
               timeout: 120000 // Extended timeout to 120 seconds
@@ -572,13 +582,50 @@ export default function AIStyleConsultation() {
           setTimeout(() => setStep(5), 400);
 
         } catch (err: any) {
-          const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || "AI Style Consultation Service Error";
-          console.error("[AI STYLE FRONTEND ERROR] Failed to fetch style recommendations:", err);
+          const respData = err?.response?.data;
+          const status = err?.response?.status;
+          const errCode = err?.code || "NO_AXIOS_CODE";
+          const errType = respData?.error_type ? `[${respData.error_type}] ` : "";
+          const serverErr = respData?.error || respData?.message || respData?.detail;
+          const errMsg = errType + (serverErr || err?.message || "AI Style Consultation Service Error");
+
+          console.error("==========================================================================");
+          console.error("[AI STYLE FRONTEND ERROR DIAGNOSTICS]");
+          console.error("  • Error Name:", err?.name);
+          console.error("  • Error Code:", errCode);
+          console.error("  • Message:", err?.message);
+          console.error("  • Target URL:", err?.config?.url || "/api/generate-style/");
+          console.error("  • Timeout Configured:", err?.config?.timeout ? `${err.config.timeout}ms` : "Default");
+
           if (err?.response) {
-            console.error("  • HTTP Status:", err.response.status);
-            console.error("  • Response Data:", err.response.data);
-            console.error("  • Request URL:", err.config?.url);
+            console.error("  • HTTP Status Code:", status);
+            console.error("  • Server Response Body:", respData);
+            if (respData?.traceback) {
+              console.error("  • Server Traceback Snippet:\n", respData.traceback);
+            }
+          } else {
+            console.warn("  • ⚠️ NO HTTP RESPONSE RECEIVED! Possible root causes:");
+            console.warn("    1. Gunicorn / Render worker killed by timeout (Check Render logs for SIGKILL / 502/504).");
+            console.warn("    2. Cross-Origin (CORS) preflight blocked by browser due to missing headers on crashed endpoint.");
+            console.warn("    3. Client network dropped or connection timed out after 120s.");
           }
+          console.error("==========================================================================");
+
+          // AUTO-RETRY LOOP LOGIC (Max 3 Auto Retries)
+          if (autoRetryCount < 3) {
+            const nextAttempt = autoRetryCount + 1;
+            console.warn(`[AI STYLE AUTO-RETRY] Encountered transient error on attempt ${autoRetryCount + 1}. Auto-retrying attempt ${nextAttempt}/3 in 3.5 seconds...`);
+            addToast(`Network hiccup detected. Auto-retrying attempt ${nextAttempt}/3...`, "warning");
+
+            setAutoRetryCount(nextAttempt);
+            setLoadingProgress(15);
+
+            setTimeout(() => {
+              fetchStyleRecommendations();
+            }, 3500);
+            return;
+          }
+
           clearInterval(progressInterval);
           clearInterval(interval);
           setLoadingProgress(0);
@@ -1587,6 +1634,7 @@ export default function AIStyleConsultation() {
                 <button
                   onClick={() => {
                     setConsultationError(null);
+                    setAutoRetryCount(0);
                     setStep(4);
                   }}
                   className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-xs font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
@@ -1597,38 +1645,238 @@ export default function AIStyleConsultation() {
               </div>
             </div>
           ) : (
-            <>
-              {/* Animated AI Icon Container */}
-              <div className="relative">
-                <div className="w-28 h-28 rounded-full bg-gradient-to-br from-[#285A48] via-[#408a71] to-[#142e25] border-2 border-[#B0E4CC] flex items-center justify-center text-[#B0E4CC] shadow-[0_0_60px_rgba(176,228,204,0.4)] animate-pulse">
-                  <Sparkles size={48} className="animate-spin text-[#B0E4CC]" style={{ animationDuration: "6s" }} />
+            <div className="w-full max-w-4xl mx-auto space-y-8 animate-fade-in py-4">
+              {/* Header Badge & Title */}
+              <div className="text-center space-y-3">
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#285A48]/30 border border-[#B0E4CC]/30 text-[#B0E4CC] text-xs font-extrabold uppercase tracking-widest shadow-lg">
+                    <Sparkles size={14} className="animate-spin" style={{ animationDuration: "4s" }} />
+                    <span>NAMMAFIT AI MASTER TAILOR ATELIER</span>
+                  </div>
+                  {autoRetryCount > 0 && (
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold animate-pulse shadow-md">
+                      <RotateCcw size={13} className="animate-spin" />
+                      <span>Re-connecting... Auto-Retry Attempt {autoRetryCount}/3</span>
+                    </div>
+                  )}
                 </div>
-
-                {/* Outer Spinning Orbit Ring */}
-                <div
-                  className="absolute -inset-4 rounded-full border border-dashed border-[#B0E4CC]/40 animate-spin pointer-events-none"
-                  style={{ animationDuration: "12s" }}
-                />
-              </div>
-
-              {/* Cycling Status Text */}
-              <div className="space-y-3 max-w-sm mx-auto">
-                <h3 className="text-xl font-bold text-white tracking-wide">
-                  {LOADING_TEXTS[loadingIndex]}
-                </h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Evaluating posture photos, occasion ({formData.occasion}), venue ({formData.venue}), and color contrast specs.
+                <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                  Crafting Your Bespoke Luxury Look
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
+                  Analyzing posture photos, undertone balance & venue lighting for <strong className="text-white">{formData.occasion}</strong> at <strong className="text-white">{formData.venue}</strong>.
                 </p>
               </div>
 
-              {/* Animated Progress Bar */}
-              <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-full h-2 overflow-hidden p-0.5">
-                <div
-                  className="bg-gradient-to-r from-[#285A48] via-[#B0E4CC] to-[#285A48] h-full rounded-full transition-all duration-700 ease-out"
-                  style={{ width: `${loadingProgress}%` }}
-                />
+              {/* Progress Bar Container */}
+              <div className="glass-card rounded-2xl p-5 border border-white/10 space-y-3 bg-slate-900/70 backdrop-blur-xl shadow-2xl">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-300 flex items-center gap-2">
+                    <Zap size={14} className="text-[#B0E4CC] animate-pulse" />
+                    <span>Generation Progress</span>
+                  </span>
+                  <span className="text-[#B0E4CC] font-mono text-sm">{Math.round(loadingProgress)}%</span>
+                </div>
+
+                <div className="w-full bg-white/5 border border-white/10 rounded-full h-3.5 overflow-hidden p-0.5 relative shadow-inner">
+                  <div
+                    className="bg-gradient-to-r from-[#285A48] via-[#B0E4CC] to-[#408a71] h-full rounded-full transition-all duration-500 ease-out shadow-[0_0_20px_rgba(176,228,204,0.5)]"
+                    style={{ width: `${loadingProgress}%` }}
+                  />
+                </div>
               </div>
-            </>
+
+              {/* 4 Interactive Stage Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Stage 1: Complexion & Undertones */}
+                {(() => {
+                  const isActive = loadingProgress < 25;
+                  const isDone = loadingProgress >= 25;
+                  return (
+                    <div className={`glass-card rounded-2xl p-5 border transition-all duration-500 ${
+                      isActive
+                        ? "border-[#B0E4CC] bg-gradient-to-br from-[#285A48]/30 to-[#091814] shadow-[0_0_30px_rgba(176,228,204,0.2)] scale-[1.02]"
+                        : isDone
+                        ? "border-emerald-500/30 bg-emerald-950/20 opacity-90"
+                        : "border-white/5 bg-white/[0.02] opacity-50"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
+                            isActive
+                              ? "bg-[#285A48] border-[#B0E4CC] text-[#B0E4CC] animate-pulse"
+                              : isDone
+                              ? "bg-emerald-600/30 border-emerald-400 text-emerald-300"
+                              : "bg-white/5 border-white/10 text-slate-500"
+                          }`}>
+                            <Camera size={18} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#B0E4CC]">Stage 01</span>
+                            <h4 className="text-sm font-bold text-white">Complexion & Undertones</h4>
+                          </div>
+                        </div>
+                        {isDone ? (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 size={12} /> Done
+                          </span>
+                        ) : isActive ? (
+                          <span className="px-2.5 py-1 rounded-full bg-[#B0E4CC]/20 border border-[#B0E4CC]/40 text-[#B0E4CC] text-[10px] font-bold animate-pulse flex items-center gap-1">
+                            <Sparkles size={12} className="animate-spin" /> Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-white/5 text-slate-500 text-[10px]">Queued</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                        Sampling skin undertones to calculate venue lighting contrast for {formData.favoriteColor || "Navy"} preferences.
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Stage 2: Bespoke Fabric Vault */}
+                {(() => {
+                  const isActive = loadingProgress >= 25 && loadingProgress < 50;
+                  const isDone = loadingProgress >= 50;
+                  return (
+                    <div className={`glass-card rounded-2xl p-5 border transition-all duration-500 ${
+                      isActive
+                        ? "border-[#B0E4CC] bg-gradient-to-br from-[#285A48]/30 to-[#091814] shadow-[0_0_30px_rgba(176,228,204,0.2)] scale-[1.02]"
+                        : isDone
+                        ? "border-emerald-500/30 bg-emerald-950/20 opacity-90"
+                        : "border-white/5 bg-white/[0.02] opacity-50"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
+                            isActive
+                              ? "bg-[#285A48] border-[#B0E4CC] text-[#B0E4CC] animate-pulse"
+                              : isDone
+                              ? "bg-emerald-600/30 border-emerald-400 text-emerald-300"
+                              : "bg-white/5 border-white/10 text-slate-500"
+                          }`}>
+                            <Scissors size={18} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#B0E4CC]">Stage 02</span>
+                            <h4 className="text-sm font-bold text-white">Fabric Vault Query</h4>
+                          </div>
+                        </div>
+                        {isDone ? (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 size={12} /> Done
+                          </span>
+                        ) : isActive ? (
+                          <span className="px-2.5 py-1 rounded-full bg-[#B0E4CC]/20 border border-[#B0E4CC]/40 text-[#B0E4CC] text-[10px] font-bold animate-pulse flex items-center gap-1">
+                            <Sparkles size={12} className="animate-spin" /> Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-white/5 text-slate-500 text-[10px]">Queued</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                        Querying NammaFit inventory for 3 distinct luxury wool, silk & tuxedo fabrics.
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Stage 3: 3D Suit Silhouette Draping */}
+                {(() => {
+                  const isActive = loadingProgress >= 50 && loadingProgress < 85;
+                  const isDone = loadingProgress >= 85;
+                  return (
+                    <div className={`glass-card rounded-2xl p-5 border transition-all duration-500 ${
+                      isActive
+                        ? "border-[#B0E4CC] bg-gradient-to-br from-[#285A48]/30 to-[#091814] shadow-[0_0_30px_rgba(176,228,204,0.2)] scale-[1.02]"
+                        : isDone
+                        ? "border-emerald-500/30 bg-emerald-950/20 opacity-90"
+                        : "border-white/5 bg-white/[0.02] opacity-50"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
+                            isActive
+                              ? "bg-[#285A48] border-[#B0E4CC] text-[#B0E4CC] animate-pulse"
+                              : isDone
+                              ? "bg-emerald-600/30 border-emerald-400 text-emerald-300"
+                              : "bg-white/5 border-white/10 text-slate-500"
+                          }`}>
+                            <Shirt size={18} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#B0E4CC]">Stage 03</span>
+                            <h4 className="text-sm font-bold text-white">3D Suit Silhouette Draping</h4>
+                          </div>
+                        </div>
+                        {isDone ? (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 size={12} /> Done
+                          </span>
+                        ) : isActive ? (
+                          <span className="px-2.5 py-1 rounded-full bg-[#B0E4CC]/20 border border-[#B0E4CC]/40 text-[#B0E4CC] text-[10px] font-bold animate-pulse flex items-center gap-1">
+                            <Sparkles size={12} className="animate-spin" /> Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-white/5 text-slate-500 text-[10px]">Queued</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                        Rendering 1K photorealistic Peak Lapel, Shawl Collar Tuxedo & Double-Breasted options with luxury Italian footwear.
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Stage 4: Master Stylist Verdict */}
+                {(() => {
+                  const isActive = loadingProgress >= 85;
+                  const isDone = loadingProgress >= 100;
+                  return (
+                    <div className={`glass-card rounded-2xl p-5 border transition-all duration-500 ${
+                      isActive
+                        ? "border-[#B0E4CC] bg-gradient-to-br from-[#285A48]/30 to-[#091814] shadow-[0_0_30px_rgba(176,228,204,0.2)] scale-[1.02]"
+                        : isDone
+                        ? "border-emerald-500/30 bg-emerald-950/20 opacity-90"
+                        : "border-white/5 bg-white/[0.02] opacity-50"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
+                            isActive
+                              ? "bg-[#285A48] border-[#B0E4CC] text-[#B0E4CC] animate-pulse"
+                              : isDone
+                              ? "bg-emerald-600/30 border-emerald-400 text-emerald-300"
+                              : "bg-white/5 border-white/10 text-slate-500"
+                          }`}>
+                            <Crown size={18} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#B0E4CC]">Stage 04</span>
+                            <h4 className="text-sm font-bold text-white">Master Stylist Verdict</h4>
+                          </div>
+                        </div>
+                        {isDone ? (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 size={12} /> Done
+                          </span>
+                        ) : isActive ? (
+                          <span className="px-2.5 py-1 rounded-full bg-[#B0E4CC]/20 border border-[#B0E4CC]/40 text-[#B0E4CC] text-[10px] font-bold animate-pulse flex items-center gap-1">
+                            <Sparkles size={12} className="animate-spin" /> Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-white/5 text-slate-500 text-[10px]">Queued</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                        Synthesizing posture alignment, shoulder drape rationales & selecting top AI Recommended pick.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           )}
         </div>
       )}
